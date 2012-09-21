@@ -1,6 +1,7 @@
 ImagingAnalysis
 ===============
 
+This is a Mathematica package (versions 7.0 and above) for various phase and cluster analyses of circadian oscillations in the SCN.
 Copy of the project in [sourceforge](http://sourceforge.net/projects/imaginganalysis/).
 
 
