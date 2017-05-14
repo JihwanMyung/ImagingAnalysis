@@ -1,9 +1,9 @@
 (* ::Package:: *)
 
-(* ImagingAnalysis.m 
-	Rel. Ver. 1.0 *)
+(* ImagingAnalysis.m for Mathematica 10
+   (Pre-release of LucAnalysis.m)       *)
 
-(* :Title: Imaging Analysis for Luminescence of Cultured SCN *)
+(* :Title: SCN bioluminescence analysis *)
 
 (* :Author: Jihwan Myung 
 
@@ -14,8 +14,12 @@
 *)
 
 (* :Dates:
-	Created 2010/03/19
-	First Release Version 2010/07/29
+	Created 2010/03/19 (SCNAnalysis on M
+	athematica 7.0.1)
+	First Release Version 2010/07/29 (ImagingAnalysis)
+	Minor Revision 2010/12/17 (ImagingAnalysis)
+	Final Revision 2012/03/14 (ImagingAnalysisFN)
+	Complete Revision 2017/05/13 (To be named LucAnalysis.m on Mathematica 11.0.1)
 *)
 
 (* :Summary:
@@ -25,7 +29,7 @@
 
 
 (* ::Subsection:: *)
-(*Header: SCNImagingAnalysis.m*)
+(*Header: LucAnalysis.m*)
 
 
 (* ::Subsubsection:: *)
@@ -33,7 +37,7 @@
 
 
 (*
-$Log: SCNImagingAnalysis.m,v $
+$Log: LucAnalysis.m,v $
 Created                                        2010/03/19 Jihwan Myung
 
 LRRS (Linear Regression on Random Sequences)   2010/04/05 Jihwan Myung
@@ -62,39 +66,67 @@ Time series plots have Option "TimeLabel"      2010/04/18 Jihwan Myung
 to choose between ZT or ExT.
 The package is sectioned.
 
-Finished incorporating all routines.          2010/07/29 Jihwan Myung
+Finished incorporating all routines.           2010/07/29 Jihwan Myung
 First release version. (Ver 1.0)
 
-Help section revised.                         2010/07/30/ Jihwan Myung
+Help section revised.                          2010/07/30 Jihwan Myung
 Minor error in nijMap[] addressed to.
 
-Corrected minor errors: formatting and        2010/08/09/ Jihwan Myung
+Corrected minor errors: formatting and         2010/08/09 Jihwan Myung
 inconsistencies in PlotAllRawTimeSeries
 and PlotAllTimeSeries
+
+Adjustments and additions to optimize          2012/03/14 Jihwan Myung
+analysis of FN1-R2 data
+[This version caused internal consistency
+errors.]
+
+Complete overhaul and renaming: (LucAnalysis)  2017/05/13 Jihwan Myung
+
+TimeSeries replaced with TimeSeriesArray.
+Replaced FilterOptions with FilterRules.
+Revised FFTPeriod.
 *)
 
-(* :Mathematica Version: 7.0.1.0 *)
+(* :Mathematica Version: 11.0.1.0 *)
 
 
 (* ::Subsubsection:: *)
 (*Preambles*)
 
 
-BeginPackage["ImagingAnalysis`ImagingAnalysis`",
-	"Utilities`FilterOptions`","ErrorBarPlots`",
+BeginPackage["LucAnalysis`LucAnalysis`",
+	"ErrorBarPlots`",
 	"HierarchicalClustering`","HypothesisTesting`"];
 
 Off[General::spell];
 Off[General::spell1];
 
-SetOptions[{Plot,ListPlot,ArrayPlot},
-	BaseStyle->{FontFamily->"Helvetica",FontSize->13 }];
-SetOptions[{Plot,ListPlot},PlotStyle->Black];
-SetOptions[ListPlot,PlotMarkers->{Automatic,4}];
+SetOptions[{Plot, ParametricPlot, DensityPlot, ListDensityPlot, ListContourPlot,
+	ListPlot, ListLinePlot, Plot3D, ListPlot3D, ArrayPlot, MatrixPlot, 
+	LogPlot,LogLogPlot,LogLinearPlot,ListLogPlot,ListLogLogPlot,ListLogLinearPlot,
+	Histogram, PairedHistogram, Histogram3D, DensityHistogram, SmoothHistogram,
+	ImageHistogram, DiscretePlot, BarChart,
+	ListPolarPlot, ListVectorPlot, ListVectorPlot3D, StreamPlot, ListStreamPlot,
+	Graphics},
+	BaseStyle->Directive[FontFamily->"Helvetica", FontSize->16, FontColor->Black]];
+SetOptions[{Plot, ListPlot, ListLinePlot, LogPlot, LogLogPlot, LogLinearPlot, 
+	ListLogPlot, ListLogLogPlot, ListLogLinearPlot, SmoothHistogram}, 
+	PlotStyle->Directive[Black, AbsoluteThickness[1.5]]];
+SetOptions[{Plot, ListPlot, ListLinePlot, LogPlot, LogLogPlot, LogLinearPlot, 
+	ListLogPlot, ListLogLogPlot, ListLogLinearPlot, BarChart, SmoothHistogram,
+	ArrayPlot, MatrixPlot, ListContourPlot, ListDensityPlot,
+	Graphics}, 
+	AxesStyle->Directive[Black, AbsoluteThickness[1.2]]];
+SetOptions[{Plot, ListPlot, ListLinePlot, LogPlot, LogLogPlot, LogLinearPlot, 
+	ListLogPlot, ListLogLogPlot, ListLogLinearPlot, BarChart, SmoothHistogram,
+	ArrayPlot, MatrixPlot, ListContourPlot, ListDensityPlot,
+	Graphics}, 
+	FrameStyle->Directive[Black, AbsoluteThickness[1.2]]];
 
-Unprotect[{CreateID, CreateFullID, IDID, ReadID, HPFilter,
+Unprotect[{CreateID, CreateFullID, CreateFullIDFN, IDID, ReadID, HPFilter,
 ImportImage, PlotImage, PlotStdDevImage, PlotMeanImage, jinMap, 
-ijnMap, nijMap, TimeSeries, InteractiveTimeSeries, RawTimeSeries,
+ijnMap, nijMap, TimeSeriesArray, InteractiveTimeSeries, RawTimeSeries,
 InteractiveRawTimeSeries, PlotBackdrop, PlotTimeSeries,
 PlotRawTimeSeries, PlotAllRawTimeSeries, LinePlotTimeSeries,
 PlotAllTimeSeries, PlotAllPhase, LinePlotRawTimeSeries,
@@ -102,7 +134,7 @@ BlankTable, BlackTable, WhiteTable, RImagePlot, RImageArray,
 ZTImageArray, MeanLuminescence, SortByLuminescence, nsortMap,
 PlotSortedLuminescence, PlotCounts, RasterPlotCounts, GetDS,
 GetAllDS, GetS, GetAllS, RasterPlot, GetAllRN, GetAllRL, GetAllRF,
-EmbedS, PhaseS, PhaseFS, PhaseDS, Unwrap, GetSNR, RImageShot, AutoCorr,
+EmbedS, EmbedS2, PhaseS, PhaseFS, PhaseDS, Unwrap, GetSNR, RImageShot, AutoCorr,
 Peaks, Troughs, PeakPosition, TroughPosition, MeanIPI, StatIPI,
 MeanIntervals, AcroPhase, FFTPeriod, LaplacianSymmetric, 
 SpectralCoords, addLabel, SpectralClusters, SpectralClustersIndex, 
@@ -125,7 +157,7 @@ PathOnClusterPlot, SeriesOnClusterPlot, PeriodPhaseOnPathPlot,
 MawarinoSeriesPlot, GetAllRF, PlotPhaseCoherence, PlotWaveAlongPath,
 PlotClusteredBars, RayleighPlot, CalibRayleighPlot, PerPhaPlot,
 PlotMeanTimeSeries, DoublePlot, Functions, ClockPlot, ClusterMap,
-CalibClusterMap, ClusterPlot, ClusterTopo,
+CalibClusterMap, ClusterPlot, ClusterTopo, RLVImagePlot, RLVImageArray,
 PlotClusterTimeSeries, PlotClusterPhase, PeriodPhasePlot, CreateFullID2}];
 
 
@@ -138,10 +170,10 @@ PlotClusterTimeSeries, PlotClusterPhase, PeriodPhasePlot, CreateFullID2}];
 
 
 Functions::usage=
-"Functions available in ImagingAnalysis.m (ver 1.0):
+"Functions available in LucAnalysis.m (ver 1.0):
 {CreateID, CreateFullID, IDID, ReadID, HPFilter,
 ImportImage, PlotImage, PlotStdDevImage, PlotMeanImage, jinMap, 
-ijnMap, nijMap, TimeSeries, InteractiveTimeSeries, RawTimeSeries,
+ijnMap, nijMap, TimeSeriesArray, InteractiveTimeSeries, RawTimeSeries,
 InteractiveRawTimeSeries, PlotBackdrop, PlotTimeSeries,
 PlotRawTimeSeries, PlotAllRawTimeSeries, LinePlotTimeSeries,
 PlotAllTimeSeries, PlotAllPhase, LinePlotRawTimeSeries,
@@ -204,8 +236,8 @@ ReadID::usage=
 "ReadID[id_,idtag_]
 Output: Entry in id";
 
-TimeSeries::usage=
-"TimeSeries[{i_,j_},id_]
+TimeSeriesArray::usage=
+"TimeSeriesArray[{i_,j_},id_]
 Output: fall[[All, j, i]]";
 
 MeanLuminescence::usage=
@@ -253,13 +285,13 @@ PlotMeanImage::usage=
 Output: Arrayplot of mean of raw images";
 
 InteractiveRawTimeSeries::usages=
-"InteractiveRawTimeSeries[id_,opts___Rule]
+"InteractiveRawTimeSeries[id_,opts : OptionsPattern[]]
 Options: SeriesTimeScale -> Automatic, 
 		CustomLabel -> Automatic
 Output: Dynamic module with raw traces";
 
 InteractiveTimeSeries::usages=
-"InteractiveTimeSeries[sall_,id_,opts___Rule]
+"InteractiveTimeSeries[sall_,id_,opts : OptionsPattern[]]
 Options: TimeGuide -> True, 
 		SeriesTimeScale -> Automatic, 
 		CustomLabel -> \"\", 
@@ -271,14 +303,14 @@ PlotBackdrop::usage=
 Output: Backdrop plot in the timeseries";
 
 PlotRawTimeSeries::usage=
-"PlotRawTimeSeries[{i_,j_}, id_ ,opts___Rule]
+"PlotRawTimeSeries[{i_,j_}, id_ ,opts : OptionsPattern[]]
 Options: SeriesTimeScale -> Automatic, 
 		TimeLabel -> \"Hours in vitro\", 
 		Backdrop->False
 Output: Plot timeseries from raw images";
 
 LinePlotRawTimeSeries::usage=
-"LinePlotRawTimeSeries[{i_,j_},id_ ,opts___Rule]
+"LinePlotRawTimeSeries[{i_,j_},id_ ,opts : OptionsPattern[]]
 Options: SeriesTimeScale -> Automatic, 
 		TimeLabel -> \"Hours in vitro\", 
 		Backdrop -> False
@@ -289,14 +321,14 @@ RawTimeSeries::usage=
 Output: Time series";
 
 PlotAllRawTimeSeries::usage=
-"PlotAllRawTimeSeries[id_ ,opts___Rule]
+"PlotAllRawTimeSeries[id_ ,opts : OptionsPattern[]]
 Options: SeriesTimeScale -> Automatic, 
 		TimeLabel -> \"Hours in vitro\", 
 		Backdrop->False
 Output: Plot time series from raw images";
 
 PlotTimeSeries::usage=
-"PlotTimeSeries[fall_,id_,opts___Rule]
+"PlotTimeSeries[fall_,id_,opts : OptionsPattern[]]
 Options: SeriesTimeScale -> Automatic, 
 		TimeLabel -> \"Hours in vitro\", 
 		Backdrop -> False, 
@@ -304,7 +336,7 @@ Options: SeriesTimeScale -> Automatic,
 Output: Plot time series";
 
 PlotSortedLuminescence::usage=
-"PlotSortedLuminescence[id_,opts___Rule]
+"PlotSortedLuminescence[id_,opts : OptionsPattern[]]
 options: MaxIndex -> Automatic, 
 		SeriesTimeScale -> Automatic, 
 		CalibrationBarLabel -> \"Luminescence\", 
@@ -312,7 +344,7 @@ options: MaxIndex -> Automatic,
 Output: Raster plot of time series from raw images";
 
 RasterPlot::usage=
-"RasterPlot[sall_,id_,ptbl___,opts___Rule]
+"RasterPlot[sall_,id_,ptbl___,opts : OptionsPattern[]]
 Options: MaxIndex -> Automatic, 
 		SeriesTimeScale -> Automatic, 
 		CalibrationBarLabel -> \"\", 
@@ -323,7 +355,7 @@ Options: MaxIndex -> Automatic,
 Output: Raster plot of any time series";
 
 PlotMeanTimeSeries::usage=
-"PlotMeanTimeSeries[fall_,ptbl_,id_,opts___Rule]
+"PlotMeanTimeSeries[fall_,ptbl_,id_,opts : OptionsPattern[]]
 Options: SeriesTimeScale -> Automatic, 
 		TimeLabel -> \"Hours in vitro\", 
 		Backdrop->False, 
@@ -331,7 +363,7 @@ Options: SeriesTimeScale -> Automatic,
 Output: Plot cluster mean of time series";
 
 PlotClusterTimeSeries::usage=
-"PlotClusterTimeSeries[fall_,ptbl_,id_,opts___Rule]
+"PlotClusterTimeSeries[fall_,ptbl_,id_,opts : OptionsPattern[]]
 Options: SeriesTimeScale -> Automatic, 
 		TimeLabel -> \"Hours in vitro\", 
 		Backdrop->False, 
@@ -339,7 +371,7 @@ Options: SeriesTimeScale -> Automatic,
 Output: Plot all time series colored by cluster";
 
 LinePlotTimeSeries::usage=
-"LinePlotTimeSeries[fall_,id_,opts___Rule]
+"LinePlotTimeSeries[fall_,id_,opts : OptionsPattern[]]
 SeriesTimeScale -> Automatic, 
 		TimeLabel -> \"Hours in vitro\", 
 		Backdrop -> False, 
@@ -347,7 +379,7 @@ SeriesTimeScale -> Automatic,
 Output: Line plot of time series";
 
 PlotAllTimeSeries::usage=
-"PlotAllTimeSeries[fall_,id_,opts___Rule]
+"PlotAllTimeSeries[fall_,id_,opts : OptionsPattern[]]
 Options: SeriesTimeScale -> Automatic, 
 		TimeLabel -> \"Hours in vitro\", 
 		Backdrop -> False, 
@@ -359,13 +391,13 @@ DoublePlot::usage=
 Output: Double plot of normalized time series over [-1, 1]";
 
 PlotCounts::usage=
-"PlotCounts[pall_,id_,opts___Rule]
+"PlotCounts[pall_,id_,opts : OptionsPattern[]]
 Options: SeriesTimeScale -> Automatic, 
 		TimeLabel -> \"Hours in vitro\"
 Output: Plot of time series of sum of peak position markers";
 
 RasterPlotCounts::usage=
-"RasterPlotCounts[pall_,id_,ptbl___,opts___Rule]
+"RasterPlotCounts[pall_,id_,ptbl___,opts : OptionsPattern[]]
 Options: MaxIndex -> Automatic, 
 		SeriesTimeScale -> Automatic, 
 		RoundBy -> 1, 
@@ -376,7 +408,7 @@ Options: MaxIndex -> Automatic,
 Output: Raster plot of time series of peak positions";
 
 PlotPhase::usage=
-"PlotPhase[abrac_,id_,opts___Rule]
+"PlotPhase[abrac_,id_,opts : OptionsPattern[]]
 Options: SeriesTimeScale -> Automatic, 
 		TimeLabel -> \"Hours in vitro\", 
 		Backdrop->False, 
@@ -386,7 +418,7 @@ Options: SeriesTimeScale -> Automatic,
 Output: Plot of unwarpped phase over time";
 
 PlotAllPhase::usage=
-"PlotAllPhase[abrac_,id_,opts___Rule]
+"PlotAllPhase[abrac_,id_,opts : OptionsPattern[]]
 Options: SeriesTimeScale -> Automatic, 
 		TimeLabel -> \"Hours in vitro\", 
 		Backdrop->False, 
@@ -416,11 +448,11 @@ TransTable::usage=
 Output: Matrix of dimensions of the raw image filled with transparency";
 
 PlotGeometry::usage=
-"PlotGeometry[img_,nojumpshift_,id_,opts___Rule]
+"PlotGeometry[img_,nojumpshift_,id_,opts : OptionsPattern[]]
 Option: Calibration -> (20/6.5)*5";
 
 PlotGeometryRaw::usage=
-"PlotGeometryRaw[img_,nojumpshift_,id_,opts___Rule]
+"PlotGeometryRaw[img_,nojumpshift_,id_,opts : OptionsPattern[]]
 Option: Calibration -> (20/6.5)*5";
 
 RImagePlot::usage=
@@ -430,7 +462,7 @@ RImageShot::usage=
 "RImageShot[rlall_,id_,rev___]";
 
 RImageArray::usage=
-"RImageArray[rlall_,id_,opts___Rule]
+"RImageArray[rlall_,id_,opts : OptionsPattern[]]
 Options: Koma -> 1, 
 		MaxCycle -> Automatic, 
 		TimeLabel -> \"Hours in vitro\", 
@@ -441,7 +473,7 @@ ZTImageArray::usage=
 
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*Help (2.1): SCNAnalysis & Spectral clustering*)
 
 
@@ -461,27 +493,27 @@ TroughPosition::usage=
 "TroughPosition[x_List,th___]";
 
 StatIPI::usage=
-"StatIPI[x_List,opts___Rule]
+"StatIPI[x_List,opts : OptionsPattern[]]
 Options: SeriesTimeScale -> Automatic, 
 		DetectionThreshold -> 0.98";
 
 MeanIPI::usage=
-"MeanIPI[x_List,id_,opts___Rule]
+"MeanIPI[x_List,id_,opts : OptionsPattern[]]
 Options: SeriesTimeScale -> Automatic, 
 		DetectionThreshold -> 0.98
 Output: Real number, single entry";
 
 MeanIntervals::usage=
-"MeanIntervals[x_List,opts___Rule]
+"MeanIntervals[x_List,opts : OptionsPattern[]]
 Options: SeriesTimeScale -> Automatic, 
 		DetectionThreshold -> 0.98";
 
 AcroPhase::usage=
-"AcroPhase[x_List,opts___Rule]
+"AcroPhase[x_List,opts : OptionsPattern[]]
 Option: SeriesTimeScale -> Automatic";
 
 FFTPeriod::usage=
-"FFTPeriod[x_List,id_,opts___Rule]
+"FFTPeriod[x_List,id_,opts : OptionsPattern[]]
 Option: SeriesTimeScale -> Automatic";
 
 LaplacianSymmetric::usage=
@@ -545,7 +577,7 @@ CalibRImagePlot::usage=
 "CalibRImagePlot[cl_, id_, label___String]";
 
 MaskedCalibRImagePlot::usage=
-"MaskedCalibRImagePlot[cl_, stbl_, id_, opts___Rule]
+"MaskedCalibRImagePlot[cl_, stbl_, id_, opts : OptionsPattern[]]
 Options: Filled -> True, 
 		Label -> \"\"";
 
@@ -593,7 +625,7 @@ PeriodPhaseOnPathPlot::usage=
 
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*Help (2.4): Partial Correlation Analysis*)
 
 
@@ -652,18 +684,24 @@ GetAllEnvelope::usage=
 "GetAllEnvelope[S_,id_,knum___]";
 
 EmbedS::usage=
-"EmbedS[sall_,id_,opts___Rule]
+"EmbedS[sall_,id_,opts : OptionsPattern[]]
+Dimensional embedding for 24h/4.
+Option: SeriesTimeScale -> Automatic";
+
+EmbedS2::usage=
+"EmbedS2[sall_,id_,opts : OptionsPattern[]]
+Dimensional embedding for period/4.
 Option: SeriesTimeScale -> Automatic";
 
 PhaseFS::usage=
 "PhaseFS[FS_]";
 
 PhaseS::usage=
-"PhaseS[sall_,id_,opts___Rule]
+"PhaseS[sall_,id_,opts : OptionsPattern[]]
 Option: SeriesTimeScale -> Automatic";
 
 GetAllRF::usage=
-"GetAllRF[sall_,id_,opts___Rule]";
+"GetAllRF[sall_,id_,opts : OptionsPattern[]]";
 
 PhaseDS::usage=
 "PhaseDS[sall_,id_]";
@@ -685,7 +723,7 @@ LRRSPeriodUnwrapped::usage=
 
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*Help (4.1): Kuramoto Index (phase coherence)*)
 
 
@@ -721,7 +759,7 @@ PlotClusteredBars::usage=
 
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*Help (5.1): Onigiri Section*)
 
 
@@ -778,7 +816,7 @@ ExportBinaryData::usage=
 "ExportBinaryData[label_,id_]";
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*Help: HPFilter*)
 
 
@@ -895,6 +933,9 @@ Options[FFTPeriod] = { SeriesTimeScale -> Automatic };
 Options[RImageArray] = { Koma -> 1, MaxCycle -> Automatic, 
 		TimeLabel -> "Hours in vitro", Color -> 0 };
 
+Options[RLVImageArray] = { Koma -> 1, MaxCycle -> Automatic, 
+		TimeLabel -> "Hours in vitro", Color -> 0 };
+
 Options[EmbedS] = { SeriesTimeScale -> Automatic };
 
 Options[PhaseS] = { SeriesTimeScale -> Automatic };
@@ -912,7 +953,7 @@ Options[ExportImages] = { Forced -> True };
 (*Main*)
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*HPFilter (By Ludsteck & Schlicht)*)
 
 
@@ -970,7 +1011,7 @@ HPFilter[x_List, opts___Rule] :=
           rptv, ptv, y, u, v, vu, vv, p, pp, ev, i, result},
           
     rptv = ReportPredictedTrendVariance /.
-           {FilterOptions[HPFilter,opts]} /. Options[HPFilter];
+           {FilterRules[{opts},Options@HPFilter]} /. Options[HPFilter];
           
     p = N[makeP[T]];
     pp = Transpose[p].p; 
@@ -981,7 +1022,7 @@ HPFilter[x_List, opts___Rule] :=
     asol = Check[NMaximize[{H[x, a, i, p, pp, ev], 0.000001<= a},
                            {{a, 1.0, 5.0}},
                            Method -> {"NelderMead", "PostProcess" -> False},
-                           FilterOptions[NMaximize, opts]],
+                           FilterRules[{opts},Options@NMaximize]],
                  $Failed, NMaximize::"cvmit", LinearSolve::"npdef", Inverse::"luc"];
 
 
@@ -1019,10 +1060,19 @@ HPFilter[x_List, a_?Positive] :=
 (* Preliminary routines / routines for raw images *)
 
 ImportImage[dir_String, opt___Rule]:=
-Module[{files,nf,srl,fall,maxfall},
+Module[{files,nf,srl,fall,maxfall,dateOrdered},
 files=FileNames["*.tif*",dir];
+fall=Table[Reverse[Import[files[[n]],{"TIFF","Data"}]],{n,1,Length[files]}];
+
+(* Order files by modification date *)	
+dateOrdered=(files[[Ordering[FileDate[#, "Modification"] & /@ files]]]);
+fall=Table[Reverse[Import[dateOrdered[[n]],{"TIFF","Data"}]],
+	{n,1,Length[files]}];
+
+(* ImagingAnalysis version
+
 srl=StringLength[SequenceAlignment[files[[1]],files[[2]]][[1]]];
-If[Forced /. {FilterOptions[ImportImage,opt]} /. Options[ImportImage],
+If[Forced /. {FilterRules[{opt},Options@ImportImage]} /. Options[ImportImage],
 	nf=Table[
 	ToString[If[k<100,0,""]]<>ToString[If[k<10,0,""]]<>ToString[k],
 	{k,If[ToExpression[StringTake[files[[1]],{srl+1,srl+1}]]==0,
@@ -1038,10 +1088,12 @@ fall=Table[Reverse[Import[files[[n]],{"TIFF","Data"}]],
 		fall]==1,
 		fall=Table[Reverse[Import[files[[n]],{"TIFF","Data"}]],
 	{n,1,Length[files]}]];
+*)
+
 Return[fall]]
 
 
-TimeSeries[{i_,j_},id_]:=
+TimeSeriesArray[{i_,j_},id_]:=
 Module[{fall,tsout},
 (* either fall or id is inputtable *)
 fall=If[Length[id]==12&&Length[Dimensions[id[[9]]]]==3,id[[9]],id]; 
@@ -1053,22 +1105,22 @@ CreateID[$ID_,ImageDirectory_,RawDirectory_,fall_,KNum_,photoperiod_]:=
 Module[{btau,tau,file1,file2,srl,dim1,dim2,dimI,con1,bin1,scale,btau2,
 	starttime,zT,exT,nijMaap,fmeanall,fsort,presortindex,sortindex,
 	geo,center,sdcenter,midsortindex1,midsortindex2,midsortindex},
-btau=60*(FileDate[FileNames[RawDirectory<>"*.tif"][[3]]][[4]]-
-	FileDate[FileNames[RawDirectory<>"*.tif"][[2]]][[4]])+
-	(FileDate[FileNames[RawDirectory<>"*.tif"][[3]]][[5]]-
-		FileDate[FileNames[RawDirectory<>"*.tif"][[2]]][[5]]);
-btau2=60*(FileDate[FileNames[RawDirectory<>"*.tif"][[2]]][[4]]-
-	FileDate[FileNames[RawDirectory<>"*.tif"][[1]]][[4]])+
-	(FileDate[FileNames[RawDirectory<>"*.tif"][[2]]][[5]]-
-		FileDate[FileNames[RawDirectory<>"*.tif"][[1]]][[5]]);
+btau=60*(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[3]]]][[4]]-
+	DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[2]]]][[4]])+
+	(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[3]]]][[5]]-
+		DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[2]]]][[5]]);
+btau2=60*(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[2]]]][[4]]-
+	DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[1]]]][[4]])+
+	(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[2]]]][[5]]-
+		DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[1]]]][[5]]);
 If[btau>0||btau!=btau2,tau=btau,
-	tau=60*(FileDate[FileNames[RawDirectory<>"*.tif"][[4]]][[4]]-
-	FileDate[FileNames[RawDirectory<>"*.tif"][[3]]][[4]])+
-	(FileDate[FileNames[RawDirectory<>"*.tif"][[4]]][[5]]
-		-FileDate[FileNames[RawDirectory<>"*.tif"][[3]]][[5]])];
+	tau=60*(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[4]]]][[4]]-
+	DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[3]]]][[4]])+
+	(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[4]]]][[5]]
+		-DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[3]]]][[5]])];
 file1=FileNames[RawDirectory<>"*.tif*"][[1]];
 file2=FileNames[RawDirectory<>"*.tif*"][[2]];
-starttime=FileDate[file1][[4]]+FileDate[file1][[5]]/60//N;
+starttime=DateList[FileDate[file1]][[4]]+DateList[FileDate[file1]][[5]]/60//N;
 zT=If[starttime-8>=0,starttime-8,starttime-8+24]//N;
 exT=If[starttime-8+6>=0,starttime-8+6,starttime-8+6+24]//N;
 srl=StringLength[SequenceAlignment[file1,file2][[1]]];
@@ -1093,7 +1145,7 @@ nijMaap[n_,rfall_]:=
 	QuotientRemainder[IntegerPart[n],Dimensions[rfall[[1]]][[2]]][[1]],
 	QuotientRemainder[IntegerPart[n],
 		Dimensions[rfall[[1]]][[2]]][[1]]+1]};
-fmeanall=Table[{n,Mean[TimeSeries[nijMaap[n,fall],fall]]},
+fmeanall=Table[{n,Mean[TimeSeriesArray[nijMaap[n,fall],fall]]},
 	{n,1,Dimensions[fall[[1]]][[1]]*Dimensions[fall[[1]]][[2]]}]//N;
 fsort=SortBy[fmeanall,Last];
 presortindex=Round[Reverse[fsort[[All,1]]]];
@@ -1131,23 +1183,23 @@ Module[{btau,tau,file1,file2,srl,dim1,dim2,dimI,con1,bin1,fall,scale,
 	midsortindex,sortindex},
 
 (* for FN1-R2 or FN1-ImagEM *)
-btau=60*(FileDate[FileNames[RawDirectory<>"*.tif"][[3]]][[4]]-
-	FileDate[FileNames[RawDirectory<>"*.tif"][[2]]][[4]])+
-	(FileDate[FileNames[RawDirectory<>"*.tif"][[3]]][[5]]-
-		FileDate[FileNames[RawDirectory<>"*.tif"][[2]]][[5]]);
-btau2=60*(FileDate[FileNames[RawDirectory<>"*.tif"][[2]]][[4]]-
-	FileDate[FileNames[RawDirectory<>"*.tif"][[1]]][[4]])+
-	(FileDate[FileNames[RawDirectory<>"*.tif"][[2]]][[5]]-
-		FileDate[FileNames[RawDirectory<>"*.tif"][[1]]][[5]]);
+btau=60*(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[3]]]][[4]]-
+	DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[2]]]][[4]])+
+	(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[3]]]][[5]]-
+		DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[2]]]][[5]]);
+btau2=60*(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[2]]]][[4]]-
+	DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[1]]]][[4]])+
+	(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[2]]]][[5]]-
+		DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[1]]]][[5]]);
 If[btau>0||btau!=btau2,tau=btau,
-	tau=60*(FileDate[FileNames[RawDirectory<>"*.tif"][[4]]][[4]]-
-	FileDate[FileNames[RawDirectory<>"*.tif"][[3]]][[4]])+
-	(FileDate[FileNames[RawDirectory<>"*.tif"][[4]]][[5]]
-		-FileDate[FileNames[RawDirectory<>"*.tif"][[3]]][[5]])];
+	tau=60*(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[4]]]][[4]]-
+	DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[3]]]][[4]])+
+	(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[4]]]][[5]]
+		-DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[3]]]][[5]])];
 file1=FileNames[RawDirectory<>"*.tif*"][[1]];
 file2=FileNames[RawDirectory<>"*.tif*"][[2]];
-starttime=FileDate[file1][[4]]+FileDate[file1][[5]]/60//N;
-zT=If[starttime-8>=0,starttime-8,starttime-8+24]//N;
+starttime=DateList[FileDate[file1][[4]]+DateList[FileDate[file1]][[5]]/60//N;
+zT=If[starttime-8>=0,starttime-8,starttime-8+24]//N;]
 exT=If[starttime-8+6>=0,starttime-8+6,starttime-8+6+24]//N;
 srl=StringLength[SequenceAlignment[file1,file2][[1]]];
 fall=ImportImage[ImageDirectory, Forced->False];
@@ -1171,7 +1223,7 @@ nijMaap[n_,rfall_]:=
 	QuotientRemainder[IntegerPart[n],Dimensions[rfall[[1]]][[2]]][[1]],
 	QuotientRemainder[IntegerPart[n],
 		Dimensions[rfall[[1]]][[2]]][[1]]+1]};
-fmeanall=Table[{n,Mean[TimeSeries[nijMaap[n,fall],fall]]},
+fmeanall=Table[{n,Mean[TimeSeriesArray[nijMaap[n,fall],fall]]},
 	{n,1,Dimensions[fall[[1]]][[1]]*Dimensions[fall[[1]]][[2]]}]//N;
 fsort=SortBy[fmeanall,Last];
 presortindex=Round[Reverse[fsort[[All,1]]]];
@@ -1206,106 +1258,32 @@ Return[{tau,Length[fall],dimI,photoperiod,zT,exT,KNum,sortindex,
 
 
 CreateFullID[$ID_,ImageDirectory_,RawDirectory_,KNum_,photoperiod_,
-	ImagEM___]:=
+	ImageEM___]:=
 Module[{btau,tau,file1,file2,srl,dim1,dim2,dimI,con1,bin1,fall,scale,
 	starttime,zT,exT,nijMaap,fmeanall,fsort,presortindex,geo,center,
 	sdcenter,midsortindex1,midsortindex2,btau2,
-	midsortindex,sortindex,adj},
+	midsortindex,sortindex,compensation},
 
-adj=0;
-If[NumberQ[ImagEM],adj=ImagEM];
-
-If[ImagEM==="ImagEM",
-
-(* for FN1-R2 or FN1-ImagEM *)
-btau=60*(FileDate[FileNames[RawDirectory<>"*.tif"][[3]]][[4]]-
-	FileDate[FileNames[RawDirectory<>"*.tif"][[2]]][[4]])+
-	(FileDate[FileNames[RawDirectory<>"*.tif"][[3]]][[5]]-
-		FileDate[FileNames[RawDirectory<>"*.tif"][[2]]][[5]]);
-btau2=60*(FileDate[FileNames[RawDirectory<>"*.tif"][[2]]][[4]]-
-	FileDate[FileNames[RawDirectory<>"*.tif"][[1]]][[4]])+
-	(FileDate[FileNames[RawDirectory<>"*.tif"][[2]]][[5]]-
-		FileDate[FileNames[RawDirectory<>"*.tif"][[1]]][[5]]);
-If[btau>0||btau!=btau2,tau=btau,
-	tau=60*(FileDate[FileNames[RawDirectory<>"*.tif"][[4]]][[4]]-
-	FileDate[FileNames[RawDirectory<>"*.tif"][[3]]][[4]])+
-	(FileDate[FileNames[RawDirectory<>"*.tif"][[4]]][[5]]
-		-FileDate[FileNames[RawDirectory<>"*.tif"][[3]]][[5]])];
-file1=FileNames[RawDirectory<>"*.tif*"][[1]];
-file2=FileNames[RawDirectory<>"*.tif*"][[2]];
-starttime=FileDate[file1][[4]]+FileDate[file1][[5]]/60//N;
-zT=If[starttime-8>=0,starttime-8,starttime-8+24]//N;
-exT=If[starttime-8+6>=0,starttime-8+6,starttime-8+6+24]//N;
-srl=StringLength[SequenceAlignment[file1,file2][[1]]];
-fall=ImportImage[ImageDirectory, Forced->False];
-dim1=Dimensions[Reverse[
-	Import[StringTake[file1,{1,srl}]<>"1"<>StringTake[file1,
-	{srl+2,StringLength[file1]-4}]<>".tif",{"TIFF","Data"}]]];
-dim2=Dimensions[fall];
-con1=Round[Mean[{dim1[[1]]/dim2[[2]],dim1[[2]]/dim2[[3]]}]];
-bin1=Round[Mean[{If[dim1[[1]]==256&&dim1[[2]]==336,
-					1344,If[dim1[[1]]==dim1[[2]],512,1344]]/dim1[[2]],
-                 If[dim1[[1]]==256&&dim1[[2]]==336,1024,
-					If[dim1[[1]]==dim1[[2]],512,1024]]/dim1[[1]]}]];
-scale=(con1*bin1/6.5)*5;
-dimI={dim2[[2]],dim2[[3]]};
-
-nijMaap[n_,rfall_]:=
-	{If[QuotientRemainder[IntegerPart[n],
-	Dimensions[rfall[[1]]][[2]]][[2]]==0,Dimensions[rfall[[1]]][[2]],
-	QuotientRemainder[IntegerPart[n],Dimensions[rfall[[1]]][[2]]][[2]]],
-	If[IntegerQ[IntegerPart[n]/Dimensions[rfall[[1]]][[2]]]==True,
-	QuotientRemainder[IntegerPart[n],Dimensions[rfall[[1]]][[2]]][[1]],
-	QuotientRemainder[IntegerPart[n],
-		Dimensions[rfall[[1]]][[2]]][[1]]+1]};
-fmeanall=Table[{n,Mean[TimeSeries[nijMaap[n,fall],fall]]},
-	{n,1,Dimensions[fall[[1]]][[1]]*Dimensions[fall[[1]]][[2]]}]//N;
-fsort=SortBy[fmeanall,Last];
-presortindex=Round[Reverse[fsort[[All,1]]]];
-
-geo=Table[nijMaap[presortindex[[n]],fall],{n,1,KNum}];
-center=Round[Mean[geo],1];
-sdcenter=Round[2.5*StandardDeviation[geo],1];
-
-midsortindex1=DeleteCases[
-	Table[If[
-	nijMaap[presortindex[[n]],fall][[1]]<center[[1]]+sdcenter[[1]]&&
-	nijMaap[presortindex[[n]],fall][[1]]>center[[1]]-sdcenter[[1]]&&
-	nijMaap[presortindex[[n]],fall][[2]]<center[[2]]+sdcenter[[2]]&&
-	nijMaap[presortindex[[n]],fall][[2]]>center[[2]]-sdcenter[[2]],
-	presortindex[[n]],"Out"],{n,1,1500}],"Out"];
-
-midsortindex2=DeleteCases[
-	Table[If[
-	nijMaap[presortindex[[n]],fall][[1]]<center[[1]]+sdcenter[[1]]&&
-	nijMaap[presortindex[[n]],fall][[1]]>center[[1]]-sdcenter[[1]]&&
-	nijMaap[presortindex[[n]],fall][[2]]<center[[2]]+sdcenter[[2]]&&
-	nijMaap[presortindex[[n]],fall][[2]]>center[[2]]-sdcenter[[2]],
-		"Out",presortindex[[n]]],{n,1,1500}],"Out"];
-
-midsortindex=Flatten[Join[midsortindex1,midsortindex2]];
-
-sortindex=Flatten[Join[midsortindex,Table[presortindex[[n]],
-	{n,1501,Dimensions[fall[[1]]][[1]]*Dimensions[fall[[1]]][[2]]}]]];,
+If[ImageEM===$Failed, compensation=0, compensation=ImageEM];
 
 (* for LV200 *)
-btau=60*(FileDate[FileNames[RawDirectory<>"*.tif"][[2]]][[4]]
-	-FileDate[FileNames[RawDirectory<>"*.tif"][[1]]][[4]])+
-	(FileDate[FileNames[RawDirectory<>"*.tif"][[2]]][[5]]
-	-FileDate[FileNames[RawDirectory<>"*.tif"][[1]]][[5]]);
+btau=60*(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[2]]]][[4]]
+	-DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[1]]]][[4]])+
+	(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[2]]]][[5]]
+	-DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[1]]]][[5]]);
 If[btau>0,tau=btau,
-	btau=60*(FileDate[FileNames[RawDirectory<>"*.tif"][[3]]][[4]]
-	-FileDate[FileNames[RawDirectory<>"*.tif"][[2]]][[4]])
-	+(FileDate[FileNames[RawDirectory<>"*.tif"][[3]]][[5]]
-	-FileDate[FileNames[RawDirectory<>"*.tif"][[2]]][[5]])];
+	btau=60*(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[3]]]][[4]]
+	-DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[2]]]][[4]])
+	+(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[3]]]][[5]]
+	-DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[2]]]][[5]])];
 If[btau>0,tau=btau,
-	tau=60*(FileDate[FileNames[RawDirectory<>"*.tif"][[4]]][[4]]
-	-FileDate[FileNames[RawDirectory<>"*.tif"][[3]]][[4]])
-	+(FileDate[FileNames[RawDirectory<>"*.tif"][[4]]][[5]]
-	-FileDate[FileNames[RawDirectory<>"*.tif"][[3]]][[5]])];
+	tau=60*(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[4]]]][[4]]
+	-DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[3]]]][[4]])
+	+(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[4]]]][[5]]
+	-DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[3]]]][[5]])];
 file1=FileNames[RawDirectory<>"*.tif*"][[1]];
 file2=FileNames[RawDirectory<>"*.tif*"][[2]];
-starttime=FileDate[file1][[4]]+FileDate[file1][[5]]/60//N;
+starttime=DateList[FileDate[file1]][[4]]+DateList[FileDate[file1]][[5]]/60//N;
 zT=If[starttime-8>=0,starttime-8,starttime-8+24]//N;
 exT=If[starttime-8+6>=0,starttime-8+6,starttime-8+6+24]//N;
 srl=StringLength[SequenceAlignment[file1,file2][[1]]];
@@ -1330,7 +1308,7 @@ nijMaap[n_,rfall_]:=
 	QuotientRemainder[IntegerPart[n],Dimensions[rfall[[1]]][[2]]][[1]],
 	QuotientRemainder[IntegerPart[n],
 		Dimensions[rfall[[1]]][[2]]][[1]]+1]};
-fmeanall=Table[{n,Mean[TimeSeries[nijMaap[n,fall],fall]]},
+fmeanall=Table[{n,Mean[TimeSeriesArray[nijMaap[n,fall],fall]]},
 	{n,1,Dimensions[fall[[1]]][[1]]*Dimensions[fall[[1]]][[2]]}]//N;
 fsort=SortBy[fmeanall,Last];
 presortindex=Round[Reverse[fsort[[All,1]]]];
@@ -1358,10 +1336,94 @@ midsortindex2=DeleteCases[
 midsortindex=Flatten[Join[midsortindex1,midsortindex2]];
 
 sortindex=Flatten[Join[midsortindex,Table[presortindex[[n]],
-	{n,1501,Dimensions[fall[[1]]][[1]]*Dimensions[fall[[1]]][[2]]}]]];];
+	{n,1501,Dimensions[fall[[1]]][[1]]*Dimensions[fall[[1]]][[2]]}]]];
 
-Return[{tau,Length[fall],dimI,photoperiod,zT+adj,exT+adj,KNum,sortindex,
-	fall,scale,bin1,$ID}]]
+Return[{tau,Length[fall],dimI,photoperiod,zT+compensation,
+	exT+compensation,KNum,sortindex,fall,scale,bin1,$ID}]]
+
+
+CreateFullIDFN[$ID_,ImageDirectory_,RawDirectory_,KNum_,photoperiod_,
+	ImageEM___]:=
+Module[{btau,tau,file1,file2,srl,dim1,dim2,dimI,con1,bin1,fall,scale,
+	starttime,zT,exT,nijMaap,fmeanall,fsort,presortindex,geo,center,
+	sdcenter,midsortindex1,midsortindex2,btau2,
+	midsortindex,sortindex,compensation},
+
+If[ImageEM===$Failed, compensation=0, compensation=ImageEM];
+
+(* for FN1-R2 or FN1-ImagEM *)
+btau=60*(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[3]]]][[4]]-
+	DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[2]]]][[4]])+
+	(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[3]]]][[5]]-
+		DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[2]]]][[5]]);
+btau2=60*(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[2]]]][[4]]-
+	DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[1]]]][[4]])+
+	(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[2]]]][[5]]-
+		DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[1]]]][[5]]);
+If[btau>0||btau!=btau2,tau=btau,
+	tau=60*(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[4]]]][[4]]-
+	DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[3]]]][[4]])+
+	(DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[4]]]][[5]]
+		-DateList[FileDate[FileNames[RawDirectory<>"*.tif"][[3]]]][[5]])];
+file1=FileNames[RawDirectory<>"*.tif*"][[1]];
+file2=FileNames[RawDirectory<>"*.tif*"][[2]];
+starttime=DateList[FileDate[file1]][[4]]+DateList[FileDate[file1]][[5]]/60//N;
+zT=If[starttime-8>=0,starttime-8,starttime-8+24]//N;
+exT=If[starttime-8+6>=0,starttime-8+6,starttime-8+6+24]//N;
+srl=StringLength[SequenceAlignment[file1,file2][[1]]];
+fall=ImportImage[ImageDirectory, Forced->False];
+dim1=Dimensions[Reverse[
+	Import[StringTake[file1,{1,srl}]<>"1"<>StringTake[file1,
+	{srl+2,StringLength[file1]-4}]<>".tif",{"TIFF","Data"}]]];
+dim2=Dimensions[fall];
+con1=Round[Mean[{dim1[[1]]/dim2[[2]],dim1[[2]]/dim2[[3]]}]];
+bin1=Round[Mean[{If[dim1[[1]]==256&&dim1[[2]]==336,
+					1344,If[dim1[[1]]==dim1[[2]],512,1344]]/dim1[[2]],
+                 If[dim1[[1]]==256&&dim1[[2]]==336,1024,
+					If[dim1[[1]]==dim1[[2]],512,1024]]/dim1[[1]]}]];
+scale=(con1*bin1/6.5)*5;
+dimI={dim2[[2]],dim2[[3]]};
+
+nijMaap[n_,rfall_]:=
+	{If[QuotientRemainder[IntegerPart[n],
+	Dimensions[rfall[[1]]][[2]]][[2]]==0,Dimensions[rfall[[1]]][[2]],
+	QuotientRemainder[IntegerPart[n],Dimensions[rfall[[1]]][[2]]][[2]]],
+	If[IntegerQ[IntegerPart[n]/Dimensions[rfall[[1]]][[2]]]==True,
+	QuotientRemainder[IntegerPart[n],Dimensions[rfall[[1]]][[2]]][[1]],
+	QuotientRemainder[IntegerPart[n],
+		Dimensions[rfall[[1]]][[2]]][[1]]+1]};
+fmeanall=Table[{n,Mean[TimeSeriesArray[nijMaap[n,fall],fall]]},
+	{n,1,Dimensions[fall[[1]]][[1]]*Dimensions[fall[[1]]][[2]]}]//N;
+fsort=SortBy[fmeanall,Last];
+presortindex=Round[Reverse[fsort[[All,1]]]];
+
+geo=Table[nijMaap[presortindex[[n]],fall],{n,1,KNum}];
+center=Round[Mean[geo],1];
+sdcenter=Round[2.5*StandardDeviation[geo],1];
+
+midsortindex1=DeleteCases[
+	Table[If[
+	nijMaap[presortindex[[n]],fall][[1]]<center[[1]]+sdcenter[[1]]&&
+	nijMaap[presortindex[[n]],fall][[1]]>center[[1]]-sdcenter[[1]]&&
+	nijMaap[presortindex[[n]],fall][[2]]<center[[2]]+sdcenter[[2]]&&
+	nijMaap[presortindex[[n]],fall][[2]]>center[[2]]-sdcenter[[2]],
+	presortindex[[n]],"Out"],{n,1,1500}],"Out"];
+
+midsortindex2=DeleteCases[
+	Table[If[
+	nijMaap[presortindex[[n]],fall][[1]]<center[[1]]+sdcenter[[1]]&&
+	nijMaap[presortindex[[n]],fall][[1]]>center[[1]]-sdcenter[[1]]&&
+	nijMaap[presortindex[[n]],fall][[2]]<center[[2]]+sdcenter[[2]]&&
+	nijMaap[presortindex[[n]],fall][[2]]>center[[2]]-sdcenter[[2]],
+		"Out",presortindex[[n]]],{n,1,1500}],"Out"];
+
+midsortindex=Flatten[Join[midsortindex1,midsortindex2]];
+
+sortindex=Flatten[Join[midsortindex,Table[presortindex[[n]],
+	{n,1501,Dimensions[fall[[1]]][[1]]*Dimensions[fall[[1]]][[2]]}]]];
+
+Return[{tau,Length[fall],dimI,photoperiod,zT+compensation,
+	exT+compensation,KNum,sortindex,fall,scale,bin1,$ID}]]
 
 
 IDID[idtag_]:=
@@ -1387,7 +1449,7 @@ Return[out]]
 
 MeanLuminescence[id_]:=
 Module[{fmeanall},
-fmeanall=Table[Mean[TimeSeries[nijMap[n,id],id]],
+fmeanall=Table[Mean[TimeSeriesArray[nijMap[n,id],id]],
 {n,1,id[[3]][[1]]*id[[3]][[2]]}]//N;
 Return[fmeanall]]
 
@@ -1406,7 +1468,7 @@ nijMaap[n_,rfall_]:=
 	QuotientRemainder[IntegerPart[n],Dimensions[rfall[[1]]][[2]]][[1]],
 	QuotientRemainder[IntegerPart[n],
 		Dimensions[rfall[[1]]][[2]]][[1]]+1]};
-fmeanall=Table[{n,Mean[TimeSeries[nijMaap[n,fall],fall]]},
+fmeanall=Table[{n,Mean[TimeSeriesArray[nijMaap[n,fall],fall]]},
 	{n,1,Dimensions[fall[[1]]][[1]]*Dimensions[fall[[1]]][[2]]}]//N;
 fsort=SortBy[fmeanall,Last];
 presortindex=Round[Reverse[fsort[[All,1]]]];
@@ -1517,17 +1579,15 @@ rawav=ArrayPlot[Mean[Table[seq[[m]]/maxseq,{m,1,Length[seq]}]],
 Return[rawav]]
 
 
-InteractiveRawTimeSeries[id_,opts___Rule]:=
+InteractiveRawTimeSeries[id_,opts : OptionsPattern[]]:=
 Module[{p,pp,rp,l,fall,intsout,pclabel,rclabel},
 fall=id[[9]];
-pp = SeriesTimeScale /. {FilterOptions[InteractiveRawTimeSeries,opts]} 
-	/. Options[InteractiveRawTimeSeries];
-rp=If[pp===Automatic,id[[1]]/60,pp];
-pclabel = CustomLabel /. {FilterOptions[InteractiveRawTimeSeries,opts]} 
-	/. Options[InteractiveRawTimeSeries];
-rclabel=If[pclabel===Automatic,id[[12]],pclabel];
-l=Graphics[{Yellow,Table[Circle[{0,0},i/(1+i)],{i,3}]},ImageSize->15];
-intsout=DynamicModule[{p={Round[Dimensions[fall[[1]]][[2]]/2],
+pp = OptionValue[SeriesTimeScale];
+rp = If[pp===Automatic,id[[1]]/60,pp];
+pclabel = OptionValue[CustomLabel];
+rclabel = If[pclabel===Automatic,id[[12]],pclabel];
+l = Graphics[{Yellow,Table[Circle[{0,0},i/(1+i)],{i,3}]},ImageSize->15];
+intsout = DynamicModule[{p={Round[Dimensions[fall[[1]]][[2]]/2],
 	Round[Dimensions[fall[[1]]][[1]]/2]}},
 	GraphicsArray[{Show[PlotMeanImage[fall],
 	Graphics[Locator[Dynamic[p],l]],ImageSize->280],
@@ -1546,20 +1606,16 @@ intsout=DynamicModule[{p={Round[Dimensions[fall[[1]]][[2]]/2],
 Return[intsout]]
 
 
-InteractiveTimeSeries[sall_,id_,opts___Rule]:=
+InteractiveTimeSeries[sall_,id_,opts : OptionsPattern[]]:=
 Module[{sortindex,fall,p,rp,l,intsout,p,rclabel,rtimeguide,knum},
 sortindex=id[[8]];
 fall=id[[9]];
-p = SeriesTimeScale /. {FilterOptions[InteractiveTimeSeries,opts]} 
-	/. Options[InteractiveTimeSeries];
-rp=If[p===Automatic,id[[1]]/60,p];
-rclabel = CustomLabel /. {FilterOptions[InteractiveTimeSeries,opts]} 
-	/. Options[InteractiveTimeSeries];
-rtimeguide = TimeGuide /. {FilterOptions[InteractiveTimeSeries,opts]} 
-	/. Options[InteractiveTimeSeries];
-knum = IndexRange /. {FilterOptions[InteractiveTimeSeries,opts]} 
-	/. Options[InteractiveTimeSeries];
-l=Graphics[{Yellow,Table[Circle[{0,0},i/(1+i)],{i,3}]},ImageSize->15];
+p = OptionValue[SeriesTimeScale];
+rp = If[p===Automatic,id[[1]]/60,p];
+rclabel = OptionValue[CustomLabel];
+rtimeguide = OptionValue[TimeGuide];
+knum = OptionValue[IndexRange];
+l = Graphics[{Yellow,Table[Circle[{0,0},i/(1+i)],{i,3}]},ImageSize->15];
 intsout=DynamicModule[{p={Round[Dimensions[fall[[1]]][[2]]/2],
 	Round[Dimensions[fall[[1]]][[1]]/2]}},
 	GraphicsArray[
@@ -1618,27 +1674,24 @@ If[id[[4]]=="LD"||id[[4]]=="EP",
 Return[out]]
 
 
-PlotRawTimeSeries[{i_,j_}, id_ ,opts___Rule]:=
+PlotRawTimeSeries[{i_,j_}, id_ ,opts : OptionsPattern[]]:=
 Module[{bd,p,rp,tlabel,rtlabel,tlength,out,fall},
 fall=id[[9]];
-bd = Backdrop /. {FilterOptions[PlotRawTimeSeries,opts]} 
-	/. Options[PlotRawTimeSeries];
-p = SeriesTimeScale /. {FilterOptions[PlotRawTimeSeries,opts]} 
-	/. Options[PlotRawTimeSeries];
-rp=If[p===Automatic,id[[1]]/60,p];
-tlabel = TimeLabel /. {FilterOptions[PlotRawTimeSeries,opts]} 
-	/. Options[PlotRawTimeSeries];
-rtlabel=If[tlabel=="ZT","Zeitgeber time (extrapolated)",
-	If[tlabel=="ExT","External Time (extrapolated)","Hours in vitro"]];
+bd = OptionValue[Backdrop];
+p = OptionValue[SeriesTimeScale];
+rp = If[p===Automatic,id[[1]]/60,p];
+tlabel = OptionValue[TimeLabel];
+rtlabel=If[tlabel=="ZT", "Zeitgeber Time",
+	If[tlabel=="ExT", "External Time", "Hours in vitro"]];
 If[bd,
 	out=
 	Show[{ListPlot[If[tlabel=="ZT",
 		tlength=Join[0*Range[1,(60/id[[1]])*Round[id[[5]]]],
-		TimeSeries[{i,j},id]],
+		TimeSeriesArray[{i,j},id]],
 	If[tlabel=="ExT",
 		tlength=Join[0*Range[1,(60/id[[1]])*Round[id[[6]]]],
-		TimeSeries[{i,j},id]],
-	tlength=TimeSeries[{i,j},id]]]],
+		TimeSeriesArray[{i,j},id]],
+	tlength=TimeSeriesArray[{i,j},id]]]],
 	PlotBackdrop[id,fall,tlabel,Length[tlength]]},
 	PlotRange->{0.85*Min[fall],Max[fall]},Frame->True,
 	FrameLabel->{rtlabel,"Luminescence"},FrameStyle->Black,
@@ -1657,11 +1710,11 @@ If[bd,
 	out=
 	Show[ListPlot[If[tlabel=="ZT",
 		tlength=Join[0*Range[1,(60/id[[1]])*Round[id[[5]]]],
-		TimeSeries[{i,j},id]],
+		TimeSeriesArray[{i,j},id]],
 	If[tlabel=="ExT",
 		tlength=Join[0*Range[1,(60/id[[1]])*Round[id[[6]]]],
-		TimeSeries[{i,j},id]],
-	tlength=TimeSeries[{i,j},id]]]],
+		TimeSeriesArray[{i,j},id]],
+	tlength=TimeSeriesArray[{i,j},id]]]],
 	PlotRange->{0.85*Min[fall],Max[fall]},Frame->True,
 	FrameLabel->{rtlabel,"Luminescence"},FrameStyle->Black,
 	FrameTicksStyle->Black,
@@ -1679,27 +1732,24 @@ If[bd,
 Return[out]]
 
 
-LinePlotRawTimeSeries[{i_,j_},id_ ,opts___Rule]:=
+LinePlotRawTimeSeries[{i_,j_},id_ ,opts : OptionsPattern[]]:=
 Module[{bd,p,rp,tlabel,rtlabel,tlength,out,fall},
 fall=id[[9]];
-bd = Backdrop /. {FilterOptions[LinePlotRawTimeSeries,opts]} 
-	/. Options[LinePlotRawTimeSeries];
-p = SeriesTimeScale /. {FilterOptions[LinePlotRawTimeSeries,opts]} 
-	/. Options[LinePlotRawTimeSeries];
-rp=If[p===Automatic,id[[1]]/60,p];
-tlabel = TimeLabel /. {FilterOptions[LinePlotRawTimeSeries,opts]} 
-	/. Options[LinePlotRawTimeSeries];
-rtlabel=If[tlabel=="ZT","Zeitgeber time (extrapolated)",
-	If[tlabel=="ExT","External Time (extrapolated)","Hours in vitro"]];
+bd = OptionValue[Backdrop];
+p = OptionValue[SeriesTimeScale];
+rp = If[p===Automatic,id[[1]]/60,p];
+tlabel = OptionValue[TimeLabel];
+rtlabel = If[tlabel=="ZT", "Zeitgeber Time",
+	      If[tlabel=="ExT", "External Time", "Hours in vitro"]];
 If[bd,
 	out=
 	Show[{ListPlot[If[tlabel=="ZT",
 		tlength=Join[0*Range[1,(60/id[[1]])*Round[id[[5]]]],
-		TimeSeries[{i,j},fall]],
+		TimeSeriesArray[{i,j},fall]],
 	If[tlabel=="ExT",
 		tlength=Join[0*Range[1,(60/id[[1]])*Round[id[[6]]]],
-		TimeSeries[{i,j},fall]],
-	tlength=TimeSeries[{i,j},fall]]],Joined->True,
+		TimeSeriesArray[{i,j},fall]],
+	tlength=TimeSeriesArray[{i,j},fall]]],Joined->True,
 	PlotStyle->Opacity[0.1,Black]],
 	PlotBackdrop[id,fall,tlabel,Length[tlength]]},
 	PlotRange->{0.85*Min[fall],Max[fall]},Frame->True,
@@ -1719,11 +1769,11 @@ If[bd,
 	out=
 	Show[ListPlot[If[tlabel=="ZT",
 		tlength=Join[0*Range[1,(60/id[[1]])*Round[id[[5]]]],
-		TimeSeries[{i,j},fall]],
+		TimeSeriesArray[{i,j},fall]],
 	If[tlabel=="ExT",
 		tlength=Join[0*Range[1,(60/id[[1]])*Round[id[[6]]]],
-			TimeSeries[{i,j},fall]],
-		tlength=TimeSeries[{i,j},fall]]],
+			TimeSeriesArray[{i,j},fall]],
+		tlength=TimeSeriesArray[{i,j},fall]]],
 	Joined->True,PlotStyle->Opacity[0.1,Black]],
 	PlotRange->{0.85*Min[fall],Max[fall]},Frame->True,
 	FrameLabel->{rtlabel,"Luminescence"},FrameStyle->Black,
@@ -1747,30 +1797,27 @@ Return[out]]
 
 
 RawTimeSeries[id_]:=
-Table[TimeSeries[sijMap[n,id],id[[9]]],{n,1,id[[7]]}];
+Table[TimeSeriesArray[sijMap[n,id],id[[9]]],{n,1,id[[7]]}];
 
 
-PlotAllRawTimeSeries[id_ ,opts___Rule]:=
+PlotAllRawTimeSeries[id_ ,opts : OptionsPattern[]]:=
 Module[{bd,p,rp,tlabel,rtlabel,tlength,out,fall},
 fall=id[[9]];
-bd = Backdrop /. {FilterOptions[PlotAllRawTimeSeries,opts]} 
-	/. Options[PlotAllRawTimeSeries];
-p = SeriesTimeScale /. {FilterOptions[PlotAllRawTimeSeries,opts]} 
-	/. Options[PlotAllRawTimeSeries];
-rp=If[p===Automatic,id[[1]]/60,p];
-tlabel = TimeLabel /. {FilterOptions[PlotAllRawTimeSeries,opts]} 
-	/. Options[PlotAllRawTimeSeries];
-rtlabel=If[tlabel=="ZT","Zeitgeber time (extrapolated)",
-	If[tlabel=="ExT","External Time (extrapolated)","Hours in vitro"]];
-	If[bd,
+bd = OptionValue[Backdrop];
+p = OptionValue[SeriesTimeScale];
+rp = If[p===Automatic,id[[1]]/60,p];
+tlabel = OptionValue[TimeLabel];
+rtlabel = If[tlabel=="ZT", "Zeitgeber Time",
+		  If[tlabel=="ExT", "External Time", "Hours in vitro"]];
+If[bd,
 out=
 	Show[{Table[ListPlot[If[tlabel=="ZT",
 		tlength=Join[0*Range[1,(60/id[[1]])*Round[id[[5]]]],
-		TimeSeries[sijMap[n,id],fall]],
+		TimeSeriesArray[sijMap[n,id],fall]],
 	If[tlabel=="ExT",
 		tlength=Join[0*Range[1,(60/id[[1]])*Round[id[[6]]]],
-		TimeSeries[sijMap[n,id],fall]],
-	tlength=TimeSeries[sijMap[n,id],fall]]],Joined->True,
+		TimeSeriesArray[sijMap[n,id],fall]],
+	tlength=TimeSeriesArray[sijMap[n,id],fall]]],Joined->True,
 		PlotStyle->Opacity[0.1,Black]],{n,1,id[[7]]}],
 	PlotBackdrop[id,fall,tlabel,Length[tlength]+96*4]},
 	Frame->True,
@@ -1793,11 +1840,11 @@ out = Show[Table[
 		ListPlot[If[
 			tlabel=="ZT",
 			tlength=Join[0*Range[1,(60/id[[1]])*Round[id[[5]]]],
-			TimeSeries[sijMap[n,id],fall]],
+			TimeSeriesArray[sijMap[n,id],fall]],
 			If[tlabel=="ExT",
 			tlength=Join[0*Range[1,(60/id[[1]])*Round[id[[6]]]],
-			TimeSeries[sijMap[n,id],fall]],
-			tlength=TimeSeries[sijMap[n,id],fall]]],Joined->True,
+			TimeSeriesArray[sijMap[n,id],fall]],
+			tlength=TimeSeriesArray[sijMap[n,id],fall]]],Joined->True,
 			PlotStyle->Opacity[0.1,Black]],
 		{n,1,id[[7]]}],
 	Frame->True,
@@ -1819,19 +1866,15 @@ out = Show[Table[
 Return[out]]
 
 
-PlotTimeSeries[fall_,id_,opts___Rule]:=
+PlotTimeSeries[fall_,id_,opts : OptionsPattern[]]:=
 Module[{bd,p,rp,tlabel,rtlabel,rylabel,out,tlength},
-bd = Backdrop /. {FilterOptions[PlotTimeSeries,opts]} 
-	/. Options[PlotTimeSeries];
-rylabel = YLabel /. {FilterOptions[PlotTimeSeries,opts]} 
-	/. Options[PlotTimeSeries];
-p = SeriesTimeScale /. {FilterOptions[PlotTimeSeries,opts]} 
-	/. Options[PlotTimeSeries];
-rp=If[p===Automatic,id[[1]]/60,p];
-tlabel = TimeLabel /. {FilterOptions[PlotTimeSeries,opts]} 
-	/. Options[PlotTimeSeries];
-rtlabel=If[tlabel=="ZT","Zeitgeber time (extrapolated)",
-	If[tlabel=="ExT","External Time (extrapolated)","Hours in vitro"]];
+bd = OptionValue[Backdrop];
+rylabel = OptionValue[YLabel];
+p = OptionValue[SeriesTimeScale];
+rp = If[p===Automatic,id[[1]]/60,p];
+tlabel = OptionValue[TimeLabel];
+rtlabel = If[tlabel=="ZT", "Zeitgeber Time",
+	      If[tlabel=="ExT", "External Time", "Hours in vitro"]];
 
 If[bd,
 	out=
@@ -1886,22 +1929,18 @@ If[bd,
 Return[out]]
 
 
-PlotSortedLuminescence[id_,opts___Rule]:=
+PlotSortedLuminescence[id_,opts : OptionsPattern[]]:=
 Module[{fall,rnum,rknum,tlength,index,scale,graphicsscale,
 	graphicscw,p,rp,scale2,rcaliblabel,tlabel,rtlabel},
-rnum=MaxIndex /. {FilterOptions[PlotSortedLuminescence,opts]} 
-	/. Options[PlotSortedLuminescence];
+
+rnum = OptionValue[MaxIndex];
 rknum=If[rnum===Automatic,id[[7]],rnum];
-p=SeriesTimeScale /. {FilterOptions[PlotSortedLuminescence,opts]} 
-	/. Options[PlotSortedLuminescence];
-rp=If[p===Automatic,id[[1]]/60,p];
-rcaliblabel=CalibrationBarLabel 
-	/. {FilterOptions[PlotSortedLuminescence,opts]} 
-	/. Options[PlotSortedLuminescence];
-tlabel = TimeLabel /. {FilterOptions[PlotSortedLuminescence,opts]} 
-	/. Options[PlotSortedLuminescence];
-rtlabel=If[tlabel=="ZT","Zeitgeber time (extrapolated)",
-	If[tlabel=="ExT","External Time (extrapolated)","Hours in vitro"]];
+p = OptionValue[SeriesTimeScale];
+rp=If[p===Automatic,id[[1]]/60, p];
+rcaliblabel = OptionValue[CalibrationBarLabel];
+tlabel = OptionValue[TimeLabel];
+rtlabel=If[tlabel=="ZT", "Zeitgeber Time",
+	If[tlabel=="ExT", "External Time", "Hours in vitro"]];
 fall=id[[9]];
 scale={0.9*Min[fall],0.9*Max[fall]};
 graphicsscale=ArrayPlot[Reverse[Transpose[{
@@ -1920,11 +1959,11 @@ graphicscw=Show[
 	ArrayPlot[Table[
 	If[tlabel=="ZT",
 		tlength=Join[0*Range[1,(60/id[[1]])*Round[id[[5]]]],
-		TimeSeries[sijMap[n,id],fall]],
+		TimeSeriesArray[sijMap[n,id],fall]],
 	If[tlabel=="ExT",
 		tlength=Join[0*Range[1,(60/id[[1]])*Round[id[[6]]]],
-		TimeSeries[sijMap[n,id],fall]],
-	TimeSeries[sijMap[n,id],fall]]],{n,1,rknum}],
+		TimeSeriesArray[sijMap[n,id],fall]],
+	TimeSeriesArray[sijMap[n,id],fall]]],{n,1,rknum}],
 	ColorFunction->"Rainbow",
 	FrameLabel->{"Ranked by average luminescence",rtlabel},
 	ImageSize->{Automatic,350*id[[7]]/900},
@@ -1943,31 +1982,24 @@ graphicscw=Show[
 Return[graphicscw]]
 
 
-RasterPlot[sall_,id_,ptbl___,opts___Rule]:=
+RasterPlot[sall_,id_,ptbl___,opts : OptionsPattern[]]:=
 Module[{rknum,rnum,scale,graphicsscale,graphicscw,rp,p,scale2,
 	rcaliblabel,roundbyset,roundby,tlabel,rtlabel,tlength,blabel,rnk},
-blabel = MainLabel /. {FilterOptions[RasterPlot,opts]} 
-	/. Options[RasterPlot];
-rnum = MaxIndex /. {FilterOptions[RasterPlot,opts]} 
-	/. Options[RasterPlot];
-rknum=If[rnum===Automatic,id[[7]],rnum];
-p = SeriesTimeScale /. {FilterOptions[RasterPlot,opts]} 
-	/. Options[RasterPlot];
-rp=If[p===Automatic,id[[1]]/60,p];
-rcaliblabel = CalibrationBarLabel /. {FilterOptions[RasterPlot,opts]} 
-	/. Options[RasterPlot];
-roundbyset = RoundBy /. {FilterOptions[RasterPlot,opts]} 
-	/. Options[RasterPlot];
-roundby=If[Max[sall]<1.5,0.1,roundbyset];
-tlabel = TimeLabel /. {FilterOptions[RasterPlot,opts]} 
-	/. Options[RasterPlot];
-rnk = Clustered /. {FilterOptions[RasterPlot,opts]} 
-	/. Options[RasterPlot];
-rtlabel=If[tlabel=="ZT","Zeitgeber time (extrapolated)",
-	If[tlabel=="ExT","External Time (extrapolated)","Hours in vitro"]];
-scale={0.9*Min[sall],0.9*Max[sall]};
-graphicsscale=ArrayPlot[Reverse[Transpose[{
-scale2=
+blabel = OptionValue[MainLabel];
+rnum = OptionValue[MaxIndex];
+rknum = If[rnum===Automatic,id[[7]],rnum];
+p = OptionValue[SeriesTimeScale];
+rp = If[p===Automatic,id[[1]]/60,p];
+rcaliblabel = OptionValue[CalibrationBarLabel];
+roundbyset = OptionValue[RoundBy];
+roundby = If[Max[sall]<1.5,0.1, roundbyset];
+tlabel = OptionValue[TimeLabel];
+rnk = OptionValue[Clustered];
+rtlabel = If[tlabel=="ZT", "Zeitgeber Time",
+	If[tlabel=="ExT", "External Time", "Hours in vitro"]];
+scale = {0.9*Min[sall], 0.9*Max[sall]};
+graphicsscale = ArrayPlot[Reverse[Transpose[{
+scale2 =
 	Table[(scale[[1]]+0.02n*(scale[[2]]-scale[[1]])),{n,0,55}],scale2}]],
 	ColorFunction->"Rainbow",PlotRange->scale,
 	ClippingStyle->{Darker[Blue,0.4],Darker[Red,0.4]},Frame->True,
@@ -1976,7 +2008,7 @@ scale2=
 	Table[{n,Round[scale[[2]]-(n/Length[scale2])*(scale[[2]]-scale[[1]]),
 	roundby]},{n,1,Length[scale2],Round[Length[scale2]/4,1]}]],None},
 	FrameStyle->{FontFamily->"Helvetica",FontSize->12},
-	ImageSize->{Automatic,171},FrameLabel->{rcaliblabel,None}];
+	ImageSize->{Automatic,171},FrameLabel->{rcaliblabel, None}];
 
 graphicscw=
 If[rnk,
@@ -2031,19 +2063,15 @@ Show[
 Return[graphicscw]]
 
 
-PlotMeanTimeSeries[fall_,ptbl_,id_,opts___Rule]:=
+PlotMeanTimeSeries[fall_,ptbl_,id_,opts : OptionsPattern[]]:=
 Module[{bd,p,rp,tlabel,rtlabel,rylabel,out,tlength,rrlc},
-bd = Backdrop /. {FilterOptions[PlotMeanTimeSeries,opts]} 
-	/. Options[PlotMeanTimeSeries];
-rylabel = YLabel /. {FilterOptions[PlotMeanTimeSeries,opts]} 
-	/. Options[PlotMeanTimeSeries];
-p = SeriesTimeScale /. {FilterOptions[PlotMeanTimeSeries,opts]} 
-	/. Options[PlotMeanTimeSeries];
-rp=If[p===Automatic,id[[1]]/60,p];
-tlabel = TimeLabel /. {FilterOptions[PlotMeanTimeSeries,opts]} 
-	/. Options[PlotMeanTimeSeries];
-rtlabel=If[tlabel=="ZT","Zeitgeber time (extrapolated)",
-	If[tlabel=="ExT","External Time (extrapolated)","Hours in vitro"]];
+bd = OptionValue[Backdrop];
+rylabel = OptionValue[YLabel];
+p = OptionValue[SeriesTimeScale];
+rp = If[p===Automatic,id[[1]]/60, p];
+tlabel = OptionValue[TimeLabel];
+rtlabel=If[tlabel == "ZT", "Zeitgeber Time",
+	If[tlabel == "ExT", "External Time", "Hours in vitro"]];
 
 (* Mean time series by cluster, ptbl *)
 Table[rrlc[k]=Mean[Table[fall[[n]],{n,ptbl[[k]]}]],{k,1,Length[ptbl]}];
@@ -2116,19 +2144,15 @@ If[bd,
 Return[out]]
 
 
-PlotClusterTimeSeries[fall_,ptbl_,id_,opts___Rule]:=
+PlotClusterTimeSeries[fall_,ptbl_,id_,opts : OptionsPattern[]]:=
 Module[{bd,p,rp,tlabel,rtlabel,rylabel,out,tlength,rrlc},
-bd = Backdrop /. {FilterOptions[PlotClusterTimeSeries,opts]} 
-	/. Options[PlotClusterTimeSeries];
-rylabel = YLabel /. {FilterOptions[PlotClusterTimeSeries,opts]} 
-	/. Options[PlotClusterTimeSeries];
-p = SeriesTimeScale /. {FilterOptions[PlotClusterTimeSeries,opts]} 
-	/. Options[PlotClusterTimeSeries];
-rp=If[p===Automatic,id[[1]]/60,p];
-tlabel = TimeLabel /. {FilterOptions[PlotClusterTimeSeries,opts]} 
-	/. Options[PlotClusterTimeSeries];
-rtlabel=If[tlabel=="ZT","Zeitgeber time (extrapolated)",
-	If[tlabel=="ExT","External Time (extrapolated)","Hours in vitro"]];
+bd = OptionValue[Backdrop];
+rylabel = OptionValue[YLabel];
+p = OptionValue[SeriesTimeScale];
+rp = If[p===Automatic,id[[1]]/60,p];
+tlabel = OptionValue[TimeLabel];
+rtlabel=If[tlabel=="ZT", "Zeitgeber Time",
+	If[tlabel=="ExT", "External Time", "Hours in vitro"]];
 
 (* Mean time series by cluster, ptbl *)
 Table[rrlc[k]=Table[fall[[n]],{n,ptbl[[k]]}],{k,1,Length[ptbl]}];
@@ -2204,19 +2228,15 @@ If[bd,
 Return[out]]
 
 
-LinePlotTimeSeries[fall_,id_,opts___Rule]:=
+LinePlotTimeSeries[fall_,id_,opts : OptionsPattern[]]:=
 Module[{bd,p,rp,tlabel,rtlabel,rylabel,out,tlength},
-bd = Backdrop /. {FilterOptions[LinePlotRawTimeSeries,opts]} 
-	/. Options[LinePlotRawTimeSeries];
-rylabel = YLabel /. {FilterOptions[LinePlotTimeSeries,opts]} 
-	/. Options[LinePlotTimeSeries];
-p = SeriesTimeScale /. {FilterOptions[LinePlotTimeSeries,opts]} 
-	/. Options[LinePlotTimeSeries];
-rp=If[p===Automatic,id[[1]]/60,p];
-tlabel = TimeLabel /. {FilterOptions[LinePlotTimeSeries,opts]} 
-	/. Options[LinePlotTimeSeries];
-rtlabel=If[tlabel=="ZT","Zeitgeber time (extrapolated)",
-	If[tlabel=="ExT","External Time (extrapolated)","Hours in vitro"]];
+bd = OptionValue[Backdrop];
+rylabel = OptionValue[YLabel];
+p = OptionValue[SeriesTimeScale];
+rp = If[p===Automatic,id[[1]]/60,p];
+tlabel = OptionValue[TimeLabel];
+rtlabel=If[tlabel=="ZT", "Zeitgeber Time",
+	If[tlabel=="ExT", "External Time", "Hours in vitro"]];
 
 If[bd,
 	out=
@@ -2263,19 +2283,15 @@ If[bd,
 Return[out]]
 
 
-PlotAllTimeSeries[fall_,id_,opts___Rule]:=
+PlotAllTimeSeries[fall_,id_,opts : OptionsPattern[]]:=
 Module[{bd,p,rp,tlabel,rtlabel,rylabel,out,tlength},
-bd = Backdrop /. {FilterOptions[PlotAllTimeSeries,opts]} 
-	/. Options[PlotAllTimeSeries];
-rylabel = YLabel /. {FilterOptions[PlotAllTimeSeries,opts]} 
-	/. Options[PlotAllTimeSeries];
-p = SeriesTimeScale /. {FilterOptions[PlotAllTimeSeries,opts]} 
-	/. Options[PlotAllTimeSeries];
+bd = OptionValue[Backdrop];
+rylabel = OptionValue[YLabel];
+p = OptionValue[SeriesTimeScale];
 rp=If[p===Automatic,id[[1]]/60,p];
-tlabel = TimeLabel /. {FilterOptions[PlotAllTimeSeries,opts]} 
-	/. Options[PlotAllTimeSeries];
-rtlabel=If[tlabel=="ZT","Zeitgeber time (extrapolated)",
-	If[tlabel=="ExT","External Time (extrapolated)","Hours in vitro"]];
+tlabel = OptionValue[TimeLabel];
+rtlabel=If[tlabel=="ZT", "Zeitgeber Time",
+	If[tlabel=="ExT", "External Time", "Hours in vitro"]];
 
 If[bd,
 	out=
@@ -2363,15 +2379,12 @@ Return[out]
 ]
 
 
-PlotCounts[pall_,id_,opts___Rule]:=
+PlotCounts[pall_,id_,opts : OptionsPattern[]]:=
 Module[{rp,out,p,tlabel,color},
-p = SeriesTimeScale /. {FilterOptions[PlotCounts,opts]} 
-	/. Options[PlotCounts];
+p = OptionValue[SeriesTimeScale];
 rp=If[p===Automatic,id[[1]]/60,p];
-tlabel = TimeLabel /. {FilterOptions[PlotCounts,opts]} 
-	/. Options[PlotCounts];
-color = Color /. {FilterOptions[PlotCounts,opts]} 
-	/. Options[PlotCounts];
+tlabel = OptionValue[TimeLabel];
+color = OptionValue[Color];
 out=ListPlot[Total[pall],Joined->True,
 	PlotRange->{0,Ceiling[Max[Total[pall]],10]},
 	AspectRatio->0.25,Filling->Bottom,PlotMarkers->None,
@@ -2385,26 +2398,20 @@ out=ListPlot[Total[pall],Joined->True,
 Return[out]]
 
 
-RasterPlotCounts[pall_,id_,ptbl___,opts___Rule]:=
+RasterPlotCounts[pall_,id_,ptbl___,opts : OptionsPattern[]]:=
 Module[{p,rp,plta,pltb,pltc,out,rnum,rknum,roundbyset,
 	roundby,tlabel,rtlabel,pall2,bd,height,cl,clscale,rpall,pall3},
 clscale = height/50;
-rnum = MaxIndex /. {FilterOptions[RasterPlotCounts,opts]} 
-	/. Options[RasterPlotCounts];
+rnum = OptionValue[MaxIndex];
 rknum=If[rnum===Automatic,id[[7]],rnum];
-p = SeriesTimeScale /. {FilterOptions[RasterPlotCounts,opts]} 
-	/. Options[RasterPlotCounts];
+p = OptionValue[SeriesTimeScale];
 rp=If[p===Automatic,id[[1]]/60,p];
-tlabel = TimeLabel /. {FilterOptions[RasterPlotCounts,opts]} 
-	/. Options[RasterPlotCounts];
-rtlabel=If[tlabel=="ZT","Zeitgeber time (extrapolated)",
-	If[tlabel=="ExT","External Time (extrapolated)","Hours in vitro"]];
-bd = Backdrop /. {FilterOptions[RasterPlotCounts,opts]} 
-	/. Options[RasterPlotCounts];
-height = Height /. {FilterOptions[RasterPlotCounts,opts]} 
-	/. Options[RasterPlotCounts];
-cl = Clustered /. {FilterOptions[RasterPlotCounts,opts]} 
-	/. Options[RasterPlotCounts];
+tlabel = OptionValue[TimeLabel];
+rtlabel=If[tlabel=="ZT", "Zeitgeber Time",
+	If[tlabel=="ExT", "External Time", "Hours in vitro"]];
+bd = OptionValue[Backdrop];
+height = OptionValue[Height];
+cl = OptionValue[Clustered];
 
 If[cl,
 	rpall=Flatten[Table[pall[[ptbl[[n]]]],{n,1,Length[ptbl]}],1],
@@ -2505,24 +2512,18 @@ If[cl,
 Return[out]]
 
 
-PlotPhase[abrac_,id_,opts___Rule]:=
+PlotPhase[abrac_,id_,opts : OptionsPattern[]]:=
 Module[{rop,rrange,len,rjoined,rp,out,bd,rylabel,p,
 	tlabel,rtlabel,opacity,tlength},
-bd = Backdrop /. {FilterOptions[PlotPhase,opts]} 
-	/. Options[PlotPhase];
-rylabel = YLabel /. {FilterOptions[PlotPhase,opts]} 
-	/. Options[PlotPhase];
-p = SeriesTimeScale /. {FilterOptions[PlotPhase,opts]} 
-	/. Options[PlotPhase];
+bd = OptionValue[Backdrop];
+rylabel = OptionValue[YLabel];
+p = OptionValue[SeriesTimeScale];
 rp=If[p===Automatic,id[[1]]/60,p];
-tlabel = TimeLabel /. {FilterOptions[PlotPhase,opts]} 
-	/. Options[PlotPhase];
-rtlabel=If[tlabel=="ZT","Zeitgeber time (extrapolated)",
-	If[tlabel=="ExT","External Time (extrapolated)","Hours in vitro"]];
-opacity = PlotOpacity /. {FilterOptions[PlotPhase,opts]} 
-	/. Options[PlotPhase];
-rjoined = PlotJoined /. {FilterOptions[PlotPhase,opts]} 
-	/. Options[PlotPhase];
+tlabel = OptionValue[TimeLabel];
+rtlabel=If[tlabel=="ZT", "Zeitgeber Time",
+	If[tlabel=="ExT", "External Time", "Hours in vitro"]];
+opacity = OptionValue[PlotOpacity];
+rjoined = OptionValue[PlotJoined];
 
 If[Max[abrac]<3Pi,rrange={-2.5Pi,2.5Pi},
 	rrange={-2Pi,2Pi+2Pi*Ceiling[id[[2]]/(24*60/id[[1]])]}];
@@ -2592,25 +2593,19 @@ out=
 Return[out]]
 
 
-PlotAllPhase[abrac_,id_,opts___Rule]:=
+PlotAllPhase[abrac_,id_,opts : OptionsPattern[]]:=
 Module[{rop,rrange,len,rjoined,rp,out,bd,rylabel,p,tlabel,
 	rtlabel,opacity,tlength},
-bd = Backdrop /. {FilterOptions[PlotAllPhase,opts]} 
-	/. Options[PlotAllPhase];
-rylabel = YLabel /. {FilterOptions[PlotAllPhase,opts]} 
-	/. Options[PlotAllPhase];
-p = SeriesTimeScale /. {FilterOptions[PlotAllPhase,opts]} 
-	/. Options[PlotAllPhase];
+bd = OptionValue[Backdrop];
+rylabel = OptionValue[YLabel];
+p = OptionValue[SeriesTimeScale];
 rp=If[p===Automatic,id[[1]]/60,p];
-tlabel = TimeLabel /. {FilterOptions[PlotAllPhase,opts]} 
-	/. Options[PlotAllPhase];
-rtlabel=If[tlabel=="ZT","Zeitgeber time (extrapolated)",
-		If[tlabel=="ExT","External Time (extrapolated)",
+tlabel = OptionValue[TimeLabel];
+rtlabel=If[tlabel=="ZT", "Zeitgeber Time",
+		If[tlabel=="ExT", "External Time",
 		"Hours in vitro"]];
-opacity = PlotOpacity /. {FilterOptions[PlotAllPhase,opts]} 
-	/. Options[PlotAllPhase];
-rjoined = PlotJoined /. {FilterOptions[PlotAllPhase,opts]} 
-	/. Options[PlotAllPhase];
+opacity = OptionValue[PlotOpacity];
+rjoined = OptionValue[PlotJoined];
 
 If[Max[abrac]<3Pi,rrange={-2.5Pi,2.5Pi},
 	rrange={-2Pi,2Pi+2Pi*Ceiling[id[[2]]/(24*60/id[[1]])]}];
@@ -2682,53 +2677,47 @@ Return[out]]
 
 
 BlankTable[id_]:=
-Module[{fall,blktable},
-fall=id[[9]];
-blktable=Table[0,{i,1,Dimensions[fall[[1]]][[1]]},
-	{j,1,Dimensions[fall[[1]]][[2]]}];
+Module[{blktable},
+blktable=Table[0,{i,1,id[[3]][[1]]},
+	{j,1,id[[3]][[2]]}];
 Return[blktable]]
 
 
 BlackTable[id_]:=
-Module[{fall,blktable},
-fall=id[[9]];
-blktable=Table[Black,{i,1,Dimensions[fall[[1]]][[1]]},
-	{j,1,Dimensions[fall[[1]]][[2]]}];
+Module[{blktable},
+blktable=Table[Black,{i,1,id[[3]][[1]]},
+	{j,1,id[[3]][[2]]}];
 Return[blktable]]
 
 
 WhiteTable[id_]:=
-Module[{fall,blktable},
-fall=id[[9]];
-blktable=Table[White,{i,1,Dimensions[fall[[1]]][[1]]},
-	{j,1,Dimensions[fall[[1]]][[2]]}];
+Module[{blktable},
+blktable=Table[White,{i,1,id[[3]][[1]]},
+	{j,1,id[[3]][[2]]}];
 Return[blktable]]
 
 
 TransparentTable[id_]:=
-Module[{fall,blktable},
-fall=id[[9]];
-blktable=Table[Transparent,{i,1,Dimensions[fall[[1]]][[1]]},
-	{j,1,Dimensions[fall[[1]]][[2]]}];
+Module[{blktable},
+blktable=Table[Transparent,{i,1,id[[3]][[1]]},
+	{j,1,id[[3]][[2]]}];
 Return[blktable]]
 
 
 TransTable[id_]:=
 Module[{fall,blktable},
 fall=id[[9]];
-blktable=Table[Transparent,{i,1,Dimensions[fall[[1]]][[1]]},
+blktable=Table[Transparent,{i,1,id[[3]][[1]]},
 	{j,1,Dimensions[fall[[1]]][[2]]}];
 Return[blktable]]
 
 
-PlotGeometry[img_,nojumpshift_,id_,opts___Rule]:=
+PlotGeometry[img_,nojumpshift_,id_,opts : OptionsPattern[]]:=
 Module[{out,rcal,sortindex,fall,KNum,fticks},
 sortindex=id[[8]];
 fall=id[[9]];
 KNum=id[[7]];
-rcal = Calibration 
-	/. {FilterOptions[PlotGeometry,opts]} 
-	/. Options[PlotGeometry];
+rcal = OptionValue[Calibration];
 fticks=If[rcal==0,{Join[{1},
 	Table[Round[(Dimensions[fall][[3]]/6)*n,2],{n,1,5}],
 		{Dimensions[fall][[3]]},
@@ -2745,14 +2734,14 @@ fticks=If[rcal==0,{Join[{1},
 	Round[(Dimensions[fall][[2]]/8)*(n-4)*(20/6.5)*5//N]},{n,0,8}]}];
 out=Show[
 Show[img],
-	ListPlot[Table[sijMap[nojumpshift[[n]], id],
+	ListPlot[Table[sijMap[nojumpshift[[n]],sortindex,fall],
 	{n,1,Length[nojumpshift]}],
 	Frame->True,
 	Axes->False,
 	AspectRatio->Dimensions[fall][[2]]/Dimensions[fall][[3]],
 	ImageSize->200,PlotRange->{{1,Dimensions[fall][[3]]},
 	{1,Dimensions[fall][[2]]}}],
-	ListPlot[{Round[Mean[Table[sijMap[n,id],{n,1,KNum}]]]},
+	ListPlot[{Round[Mean[Table[sijMap[n,sortindex,fall],{n,1,KNum}]]]},
 	PlotStyle->{Opacity[0.5,Red],AbsolutePointSize[7]}],
 	FrameTicks->fticks,
 	BaseStyle->{FontFamily->"Helvetica",FontSize->9},
@@ -2761,13 +2750,12 @@ Show[img],
 Return[out]]
 
 
-PlotGeometryRaw[img_,nojumpshift_,id_,opts___Rule]:=
+PlotGeometryRaw[img_,nojumpshift_,id_,opts : OptionsPattern[]]:=
 Module[{out,rcal,sortindex,fall,KNum,fticks},
 sortindex=id[[8]];
 fall=id[[9]];
 KNum=id[[7]];
-rcal = Calibration /. {FilterOptions[PlotGeometryRaw,opts]} 
-	/. Options[PlotGeometryRaw];
+rcal = OptionValue[Calibration];
 fticks=If[rcal==0,{Join[{1},
 	Table[Round[(Dimensions[fall][[3]]/6)*n,2],{n,1,5}],
 		{Dimensions[fall][[3]]},
@@ -2784,14 +2772,14 @@ fticks=If[rcal==0,{Join[{1},
 	Round[(Dimensions[fall][[2]]/8)*(n-4)*(20/6.5)*5//N]},{n,0,8}]}];
 out=Show[
 	ArrayPlot[(Max[img[[1]]]-img[[1]])/Max[img[[1]]]],
-	ListPlot[Table[sijMap[nojumpshift[[n]],id],
+	ListPlot[Table[sijMap[nojumpshift[[n]],sortindex,fall],
 			{n,1,Length[nojumpshift]}],
 		Frame->True,Axes->False,
 		AspectRatio->Dimensions[fall][[2]]/Dimensions[fall][[3]],
 		ImageSize->200,
 		PlotRange->{{1,Dimensions[fall][[3]]},
 			{1,Dimensions[fall][[2]]}}],
-	ListPlot[{Round[Mean[Table[sijMap[n,id],{n,1,KNum}]]]},
+	ListPlot[{Round[Mean[Table[sijMap[n,sortindex,fall],{n,1,KNum}]]]},
 		PlotStyle->{Opacity[0.5,Red],AbsolutePointSize[7]}],
 		FrameTicks->fticks,
 		BaseStyle->{FontFamily->"Helvetica",FontSize->9},
@@ -2850,7 +2838,7 @@ out=ArrayPlot[blktable,
 	ColorFunction->(GrayLevel[#]&),
 	ImagePadding->{{0,0},{0,0}},
 	AspectRatio->id[[3]][[1]]/id[[3]][[2]]];,
-rv==2,
+rv==2||rv==6,
 blktable=If[rv==6,TransparentTable[id],BlackTable[id]];
 Table[blktable[[sijMap[n,id][[2]],sijMap[n,id][[1]]]]=rlall[[n]],
 	{n,1,id[[7]]}];
@@ -2858,17 +2846,19 @@ out=ArrayPlot[blktable,
 	PlotRange->{Mean[rlall]-StandardDeviation[rlall],Mean[rlall]
 		+StandardDeviation[rlall]},DataReversed->True,Frame->False,
 	ImageSize->200,
-	PlotRangePadding->None,ClippingStyle->{Blue,Red},
+	PlotRangePadding->None,ClippingStyle->{Darker[Blue,0.4],
+	Darker[Red,0.4]},
 	ColorFunction->"Rainbow",
 	ImagePadding->{{0,0},{0,0}},AspectRatio->id[[3]][[1]]/id[[3]][[2]]];,
-rv==3||rv==6,
-blktable=If[rv==6,TransparentTable[id],BlackTable[id]];
+rv==3||rv==7,
+blktable=If[rv==7,TransparentTable[id],BlackTable[id]];
 Table[blktable[[sijMap[n,id][[2]],sijMap[n,id][[1]]]]=rlall[[n]],
 	{n,1,id[[7]]}];
 out=ArrayPlot[blktable,
 	PlotRange->All, DataReversed->True,Frame->False,
 	ImageSize->200,
-	PlotRangePadding->None,ClippingStyle->{Blue,Red},
+	PlotRangePadding->None,ClippingStyle->{Darker[Blue,0.4],
+	Darker[Red,0.4]},
 	ColorFunction->"Rainbow",
 	ImagePadding->{{0,0},{0,0}},AspectRatio->id[[3]][[1]]/id[[3]][[2]]];,
 rv==0,
@@ -2882,21 +2872,18 @@ out=ArrayPlot[blktable,PlotRange->All,DataReversed->True,Frame->False,
 Return[out]]
 
 
-RImageArray[rlall_,id_,opts___Rule]:=
+RImageArray[rlall_,id_,opts : OptionsPattern[]]:=
 Module[{ev,mmcycle,rmmcycle,p,rp,tr,tlabel,rtlabel,ztfill,
 	plotwhite,color,out},
 tr=Round[60/id[[1]]];
-ev = Koma /. {FilterOptions[RImageArray,opts]} /. Options[RImageArray];
-mmcycle = MaxCycle /. {FilterOptions[RImageArray,opts]} 
-	/. Options[RImageArray];
+ev = OptionValue[Koma];
+mmcycle = OptionValue[MaxCycle];
 rmmcycle = If[mmcycle===Automatic, 
 	Floor[Dimensions[rlall][[2]]/(24*tr)], mmcycle];
-tlabel = TimeLabel /. {FilterOptions[RImageArray,opts]} 
-	/. Options[RImageArray];
-color = Color /. {FilterOptions[RImageArray,opts]} 
-	/. Options[RImageArray];
-rtlabel=If[tlabel=="ZT","Zeitgeber time (extrapolated)",
-		If[tlabel=="ExT","External Time (extrapolated)",
+tlabel = OptionValue[TimeLabel];
+color = OptionValue[Color];
+rtlabel=If[tlabel=="ZT", "Zeitgeber Time",
+		If[tlabel=="ExT", "External Time",
 		"Hours in vitro"]];
 
 plotwhite=
@@ -2964,7 +2951,7 @@ Return[out]]
 
 (* 
 Prevously SCNAnalysis.m
-Incorporated to SCNImagingAnalysis.m  2010/03/21 Jihwan
+Incorporated to LucAnalysis.m  2010/03/21 Jihwan
 *)
 
 
@@ -3015,36 +3002,31 @@ ppos=Flatten[Position[Troughs[x, rth],1]];
 Return[ppos]]
 
 
-StatIPI[x_List,opts___Rule]:=
+StatIPI[x_List,id_,opts : OptionsPattern[]]:=
 Module[{ipi,p,rp,rth},
-p = SeriesTimeScale /. {FilterOptions[StatIPI,opts]} /. Options[StatIPI];
-rp=If[p==Automatic,id[[1]]/60,p];
-rth = DetectionThreshold /. {FilterOptions[StatIPI,opts]} 
-	/. Options[StatIPI];
+p = OptionValue[SeriesTimeScale];
+rp = If[p==Automatic,id[[1]]/60,p];
+rth = OptionValue[DetectionThreshold];
 ipi=Differences[
 	PeakPosition[x,rth][[Range[2,Length[PeakPosition[x,rth]]]]]]*rp//N;
 Return[{Mean[ipi],StandardDeviation[ipi],Length[ipi]}//N]]
 
 
-MeanIPI[x_List,id_,opts___Rule]:=
+MeanIPI[x_List,id_,opts : OptionsPattern[]]:=
 Module[{ipi,p,rp,rth},
-p = SeriesTimeScale /. {FilterOptions[MeanIPI,opts]} 
-	/. Options[MeanIPI];
-rp=If[p==Automatic,id[[1]]/60,p];
-rth = DetectionThreshold /. {FilterOptions[MeanIPI,opts]} 
-	/. Options[MeanIPI];
-ipi=Differences[
+p = OptionValue[SeriesTimeScale];
+rp = If[p==Automatic,id[[1]]/60,p];
+rth = OptionValue[DetectionThreshold];
+ipi = Differences[
 	PeakPosition[x,rth][[Range[2,Length[PeakPosition[x,rth]]]]]]*rp//N;
 Return[Mean[ipi]//N]]
 
 
-MeanIntervals[x_List,opts___Rule]:=
+MeanIntervals[x_List,id_,opts : OptionsPattern[]]:=
 Module[{ipi,iti,iei,p,rp,rth},
-p = SeriesTimeScale /. {FilterOptions[MeanIntervals,opts]} 
-	/. Options[MeanIntervals];
-rp=If[p==Automatic,id[[1]]/60,p];
-rth = DetectionThreshold /. {FilterOptions[MeanIntervals,opts]} 
-	/. Options[MeanIntervals];
+p = OptionValue[SeriesTimeScale];
+rp = If[p==Automatic,id[[1]]/60,p];
+rth = OptionValue[DetectionThreshold];
 
 ipi=Differences[PeakPosition[x][[Range[If[PeakPosition[x][[1]]<5,2,1],
 	If[Length[PeakPosition[x]]>Length[x]-5,Length[PeakPosition[x]]-1,
@@ -3058,11 +3040,10 @@ iei=Flatten[Join[ipi,iti]*rp//N];
 Return[{Mean[iei],StandardDeviation[iei]/Sqrt[Length[iei]]}//N]]
 
 
-AcroPhase[x_List,opts___Rule]:=
+AcroPhase[x_List,id_,opts : OptionsPattern[]]:=
 Module[{preacro,acro,p,rp},
-p = SeriesTimeScale /. {FilterOptions[AcroPhase,opts]} 
-	/. Options[AcroPhase];
-rp=If[p==Automatic,id[[1]]/60,p];
+p = OptionValue[SeriesTimeScale];
+rp = If[p==Automatic,id[[1]]/60,p];
 preacro=
 	PeakPosition[x][[Range[If[PeakPosition[x][[1]]<12,2,1],
 	If[Length[PeakPosition[x]]>Length[x]-5,Length[PeakPosition[x]]-1,
@@ -3071,21 +3052,29 @@ acro=rp*preacro;
 Return[acro]]
 
 
-FFTPeriod[x_List,id_,opts___Rule]:=
-Module[{ftbl,postbl,fretbl,frpostbl,perdettbl,Spertbl,p,rp,rn},
-p = SeriesTimeScale /. {FilterOptions[FFTPeriod,opts]} 
-	/. Options[FFTPeriod];
-rp=If[p==Automatic,id[[1]]/60,p];
+(* Revised on 2017/05/13 to prevent null output *)
+
+FFTPeriod[x_List,id_,opts : OptionsPattern[]]:=
+Module[{ftbl,postbl,fretbl,frpostbl,perdettbl,Spertbl,p,rp,rn,y,st,out,tbls},
+
+p = OptionValue[SeriesTimeScale];
+rp = If[p==Automatic, id[[1]]/60, p];
+(* rp = id[[1]]/60; *)
+
 rn=1;
-ftbl = Abs[Fourier[x]];
-postbl = Position[ftbl, Max[ftbl]][[rn,1]];
-fretbl = Abs[Fourier[x Exp[2 Pi I (postbl - 2)* 
-			N[Range[0, Length[x]- 1]]/Length[x]], 
+tbls=Table[
+y=x[[st;;All]];
+	ftbl = Abs[Fourier[y]];
+	postbl = Position[ftbl, Max[ftbl]][[rn,1]];
+	fretbl = Abs[Fourier[y Exp[2 Pi I (postbl - 2)* 
+			N[Range[0, Length[y]- 1]]/Length[y]], 
             FourierParameters->{0, 2/Length[x]}]];
-frpostbl = Position[fretbl, Max[fretbl]][[1,1]];
-perdettbl = N[Length[x]/(postbl - 2 + 2 (frpostbl - 1)/Length[x])]*rp;
-Spertbl = If[NumberQ[perdettbl]==False||perdettbl<0, 0, perdettbl];
-Return[Spertbl]]
+	frpostbl = Position[fretbl, Max[fretbl]][[1,1]];
+	perdettbl = N[Length[y]/(postbl - 2 + 2 (frpostbl - 1)/Length[y])]*rp;
+	Spertbl= If[NumberQ[perdettbl]==False||perdettbl<0, 0, perdettbl],
+{st,1,12}];
+out=Median[tbls];
+Return[out]]
 
 
 (* Spectral Clustering -- by Sungho Hong*)
@@ -3474,7 +3463,7 @@ Return[out]]
 CalibRImagePlot[cl_, id_, label_, range___]:=
 Module[{rlabel,out,ClipS,scale,graphicsscale,scale2,blktable},
 If[label===$Failed,rlabel="",rlabel=label];
-blktable=BlackTable[id];
+blktable=TransparentTable[id];
 ClipS={Darker[Blue,0.4],Darker[Red,0.4]};
 If[range===$Failed,
 scale={Round[Mean[cl]-1.0*StandardDeviation[cl],0.1],
@@ -3533,14 +3522,12 @@ out=Show[
 Return[out]]
 
 
-MaskedCalibRImagePlot[cl_, stbl_, id_, opts___Rule]:=
+MaskedCalibRImagePlot[cl_, stbl_, id_, opts : OptionsPattern[]]:=
 Module[{rlabel,out,ClipS,scale,graphicsscale,scale2,blktable,
 	slij,sel,selec,select,maskplot,fill},
-rlabel = Label /. {FilterOptions[MaskedCalibRImagePlot, opts]} /. 
-	Options[MaskedCalibRImagePlot];
-fill = Filled /. {FilterOptions[MaskedCalibRImagePlot, opts]} /. 
-	Options[MaskedCalibRImagePlot];
-blktable=BlackTable[id];
+rlabel = OptionValue[Label];
+fill = OptionValue[Filled];
+blktable = BlackTable[id];
 
 slij = Table[
 		Table[
@@ -3615,26 +3602,6 @@ out = Show[
 			{Right,Center}],
 		ImagePadding->{{10,70},{10,10}}],
 	maskplot];
-Return[out]]
-
-
-ClusterTopo[ctbl_, id_]:=
-Module[{rlabel,out,ClipS,scale,scale2,blktable,cl,ptbl},
-ptbl=Reverse[ctbl];
-blktable=TransparentTable[id];
-cl=ClusterLabel[ptbl][[All,2]];
-ClipS={Darker[Blue,0.4],Darker[Red,0.4]};
-scale={Round[Min[cl],0.01],Round[Max[cl],0.01]};
-Table[blktable[[sijMap[n,id][[2]],sijMap[n,id][[1]]]]=cl[[n]],
-	{n,1,id[[7]]}];
-out=Rasterize[
-	Graphics[{Opacity[1],ArrayPlot[blktable,
-	DataReversed->True, Frame->False,
-	PlotRange->scale,
-	ColorFunctionScaling->True, ClippingStyle->ClipS,
-	ColorFunction->"Rainbow",
-	ImagePadding->{{0,0},{0,0}},
-    AspectRatio->id[[3]][[1]]/id[[3]][[2]]][[1]]}],ImageSize->250];
 Return[out]]
 
 
@@ -3893,13 +3860,33 @@ AspectRatio->0.8];
 Return[out]]
 
 
+ClusterTopo[ctbl_, id_,cells___]:=
+Module[{rlabel,out,ClipS,scale,scale2,blktable,cl,ptbl},
+ptbl=Reverse[ctbl];
+blktable=TransparentTable[id];
+cl=ClusterLabel[ptbl][[All,2]];
+ClipS={Darker[Blue,0.4],Darker[Red,0.4]};
+scale={Round[Min[cl],0.01],Round[Max[cl],0.01]};
+Table[blktable[[sijMap[n,id][[2]],sijMap[n,id][[1]]]]=cl[[n]],
+	{n,1,If[cells===$Failed,id[[7]],cells]}];
+out=Rasterize[
+	Graphics[{Opacity[1],ArrayPlot[blktable,
+	DataReversed->True, Frame->False,
+	PlotRange->scale,
+	ColorFunctionScaling->True, ClippingStyle->ClipS,
+	ColorFunction->"Rainbow",
+	ImagePadding->{{0,0},{0,0}},
+    AspectRatio->id[[3]][[1]]/id[[3]][[2]]][[1]]}],ImageSize->250];
+Return[out]]
+
+
 (* ::Subsubsection:: *)
 (*(2.4) Partial Correlation Analysis*)
 
 
 (* 
 	Partial correlation routines created by Sungho Hong 
-	Integrated to ImagingAnalysis.m on 23 June 2010
+	Integrated to LucAnalysis.m on 23 June 2010
 *)
 
 
@@ -3984,7 +3971,7 @@ Return[labels]]
 
 
 (*
-Routines added to SCNImagingAnalysis.m
+Routines added to LucAnalysis.m
 2010/03/23 Jihwan
 *)
 
@@ -4001,7 +3988,7 @@ GetDS[id_,n_]:=
 Module[{rknum,stindex,nS,tS,dS,fall,sall},
 fall=id[[9]];
 stindex=id[fall];
-nS=TimeSeries[nijMap[stindex[[n]],fall],fall];
+nS=TimeSeriesArray[nijMap[stindex[[n]],fall],fall];
 tS=HPFilter[nS,(24*3*(60/id[[1]]))^2];
 dS=Table[nS[[k]]-tS[[k]],{k,1,Length[nS]}];
 Return[dS]]
@@ -4011,7 +3998,7 @@ GetS[id_,n_]:=
 Module[{fall,rknum,stindex,nS,tS,dS,sall},
 fall=id[[9]];
 stindex=id[[8]];
-nS=TimeSeries[nijMap[stindex[[n]],fall],fall];
+nS=TimeSeriesArray[nijMap[stindex[[n]],fall],fall];
 tS=HPFilter[nS,(24*3*(60/id[[1]]))^2];
 dS=Table[nS[[k]]-tS[[k]],{k,1,Length[nS]}];
 sall=HPFilter[dS,(24*3*(60/id[[1]]))];
@@ -4023,8 +4010,9 @@ Module[{fall,rknum,stindex,nS,tS,dS,sall},
 rknum=If[knum===$Failed||knum==0,id[[7]],knum];
 fall=id[[9]];
 If[knum==0,
-nS=Table[TimeSeries[sijMap[n,id],fall]-TimeSeries[sijMap[id[[3]][[1]]*id[[3]][[2]],id],fall],{n,1,rknum}],
-nS=Table[TimeSeries[sijMap[n,id],fall],{n,1,rknum}]];
+nS=Table[HPFilter[TimeSeriesArray[sijMap[n,id],fall],100]
+ -HPFilter[TimeSeriesArray[sijMap[id[[3]][[1]]*id[[3]][[2]],id],fall],100],{n,1,rknum}],
+nS=Table[HPFilter[TimeSeriesArray[sijMap[n,id],fall],100],{n,1,rknum}]];
 tS=Table[HPFilter[nS[[n]],(24*3*(60/id[[1]]))^2],{n,1,rknum}];
 dS=Table[Table[nS[[n]][[k]]-tS[[n]][[k]],{k,1,Length[nS[[1]]]}],
 	{n,1,rknum}];
@@ -4037,7 +4025,7 @@ Module[{rknum,fall,stindex,nS,tS,dS},
 rknum=If[knum===$Failed,id[[7]],knum];
 fall=id[[9]];
 stindex=SortByLuminescence[fall];
-nS=Table[TimeSeries[nijMap[stindex[[n]],fall],fall],{n,1,rknum}];
+nS=Table[TimeSeriesArray[nijMap[stindex[[n]],fall],fall],{n,1,rknum}];
 tS=Table[HPFilter[nS[[n]],(24*3*(60/id[[1]]))^2],{n,1,rknum}];
 dS=Table[Table[nS[[n]][[k]]-tS[[n]][[k]],{k,1,Length[nS[[1]]]}],
 	{n,1,rknum}];
@@ -4114,12 +4102,22 @@ rlall=Table[Table[Interpolation[env[[n]]][x],
 Return[rlall]]
 
 
-EmbedS[sall_,id_,opts___Rule]:=
+EmbedS[sall_,id_,opts : OptionsPattern[]]:=
 Module[{rtau,FS,p,rp},
-p = SeriesTimeScale /. {FilterOptions[EmbedS,opts]} /. Options[EmbedS];
-rtau=If[p==Automatic,Round[(60/id[[1]])*6],Round[6*(1/p)]];
-FS=Table[Table[{sall[[FNum]][[n+rtau]],sall[[FNum]][[n]]},
+p = OptionValue[SeriesTimeScale];
+rtau = Round[(60/id[[1]])*6];
+FS = Table[Table[{sall[[FNum]][[n+rtau]],sall[[FNum]][[n]]},
    {n,1,Length[sall[[FNum]]]-rtau}], {FNum,1,Dimensions[sall][[1]]}];
+Return[FS]]
+
+
+EmbedS2[sall_,id_,opts : OptionsPattern[]]:=
+Module[{per,rtau,FS,p,rp},
+p = OptionValue[SeriesTimeScale];
+per=Table[FFTPeriod[sall[[n]],id],{n,1,id[[7]]}];
+rtau=Table[Round[(60/id[[1]])*(per[[n]]/4),1],{n,1,Length[per]}];
+FS=Table[Table[{sall[[FNum]][[n+rtau[[FNum]]]],sall[[FNum]][[n]]},
+   {n,1,Length[sall[[FNum]]]-Max[rtau[[FNum]]]}],{FNum,1,Dimensions[sall][[1]]}];
 Return[FS]]
 
 
@@ -4131,49 +4129,46 @@ Return[pFS]]
 
 
 (* PhaseS is combibation of EmbedS and PhaseFS; not really useful *)
+(* Called by: PhaseDS *)
+(* Revised on 2017/05/13: embedding is exactly 1/4 of period in each cell *)
 
-PhaseS[sall_,id_,opts___Rule]:=
-Module[{p,rtau,FS,PhaseFS,per},
-p = SeriesTimeScale /. {FilterOptions[PhaseS,opts]} /. Options[PhaseS];
-If[p==Automatic,rtau=Round[(60/id[[1]])*6,1],
-	If[p==Adaptive,per=Table[FFTPeriod[sall[[n]],id],{n,1,id[[7]]}];
-		rtau=Round[(60/id[[1]])*(Mean[per]/4),rtau=Round[6*(1/p),1]]]];
-FS=Table[Table[{sall[[FNum]][[n+rtau]],sall[[FNum]][[n]]},
-   {n,1,Length[sall[[FNum]]]-rtau}],{FNum,1,Dimensions[sall][[1]]}];
+PhaseS[sall_,id_,opts : OptionsPattern[]]:=
+Module[{p,FS,pFS},
+p = OptionValue[SeriesTimeScale];
+
+FS=EmbedS[sall,id];
+pFS=PhaseFS[FS];
+
+(*
+per=Table[FFTPeriod[sall[[n]],id],{n,1,id[[7]]}];
+rtau=Table[Round[(60/id[[1]])*(per[[n]]/4),1],{n,1,Length[per]}];
+
+FS=Table[Table[{sall[[FNum]][[n+rtau[[FNum]]]],sall[[FNum]][[n]]},
+   {n,1,Length[sall[[FNum]]]-Max[rtau[[FNum]]]}],{FNum,1,Dimensions[sall][[1]]}];
 PhaseFS=Table[Table[ArcTan[FS[[FNum]][[n]][[1]],FS[[FNum]][[n]][[2]]],
    {n,1,Length[FS[[FNum]]]}],{FNum,1,Dimensions[FS][[1]]}];
-Return[PhaseFS]]
+*)
+
+Return[pFS]]
 
 
 (* Produces RF from S *)
 
-GetAllRF[sall_,id_,opts___Rule]:=
+GetAllRF[sall_,id_,opts : OptionsPattern[]]:=
 Module[{p,rtau,FS,PhaseFS,RF,per},
-p = SeriesTimeScale /. {FilterOptions[PhaseS,opts]} /. Options[PhaseS];
-If[p==Automatic,rtau=Round[(60/id[[1]])*6,1],
-	If[p==Adaptive,per=Table[FFTPeriod[sall[[n]],id],{n,1,id[[7]]}];
-		rtau=Round[(60/id[[1]])*(Mean[per]/4),rtau=Round[6*(1/p),1]]]];
+p = OptionValue[SeriesTimeScale];
+rtau = Round[(60/id[[1]])*6,1];
+(*
+	If[p==Automatic,rtau=Round[(60/id[[1]])*6,1],
+	If[p=="Adaptive", per=Table[FFTPeriod[sall[[n]],id],{n,1,id[[7]]}];
+	rtau=Round[(60/id[[1]])*(Mean[per]/4),rtau=Round[6*(1/p),1]]]];
+*)
 FS=Table[Table[{sall[[FNum]][[n+rtau]],sall[[FNum]][[n]]},
    {n,1,Length[sall[[FNum]]]-rtau}],{FNum,1,Dimensions[sall][[1]]}];
 PhaseFS=Table[Table[ArcTan[FS[[FNum]][[n]][[1]],FS[[FNum]][[n]][[2]]],
    {n,1,Length[FS[[FNum]]]}],{FNum,1,Dimensions[FS][[1]]}];
 RF=Table[Sin[PhaseFS[[n]]],{n,1,id[[7]]}];
 Return[RF]]
-
-
-(* input is sall and output is unwrapped *)
-
-PhaseDS[sall_,id_]:=
-Module[{FS,ufs,mufs,out,abraclen,exclude},
-FS=PhaseS[sall,id];
-ufs=Unwrap[FS];
-abraclen=Table[Length[ufs[[n]]],{n,1,id[[7]]}];
-exclude=Flatten[Position[abraclen,
-	Complement[abraclen,{Median[abraclen]}][[1]]]];
-If[Length[exclude]==0,mufs=Mean[ufs],
-	mufs=Mean[Table[ufs[[n]],{n,Complement[Range[1,id[[7]]],exclude]}]]];
-out=Table[ufs[[n]]-mufs,{n,1,Length[sall]}];
-Return[out]]
 
 
 Unwrap[FS_,thres___]:=
@@ -4190,6 +4185,21 @@ abrac=Table[Flatten[Table[2Pi*(k-1)+FS[[q]][[Range[If[k==1,1,
 	Length[FS[[q]]],dp[[q]][[k]]]]]]],
 	{k,1,Length[dp[[q]]]+1}]],{q,1,KNum}];
 Return[abrac]]
+
+
+(* input is sall and output is unwrapped *)
+
+PhaseDS[sall_,id_]:=
+Module[{FS,ufs,mufs,out,abraclen,exclude},
+FS=PhaseS[sall,id]; (* time-dependent phases phi(t) *)
+ufs=Unwrap[FS];
+abraclen=Table[Length[ufs[[n]]],{n,1,id[[7]]}];
+exclude=Flatten[Position[abraclen,
+	Complement[abraclen,{Median[abraclen]}][[1]]]]//Quiet;
+If[Length[exclude]==0,mufs=Mean[ufs],
+	mufs=Mean[Table[ufs[[n]],{n,Complement[Range[1,id[[7]]],exclude]}]]];
+out=Table[ufs[[n]]-mufs,{n,1,Length[sall]}];
+Return[out]]
 
 
 GetSNR[sall_,dS_]:=
@@ -4276,7 +4286,7 @@ tlength=Join[ki[[1]]+0*Range[1,(60/id[[1]])*
 tdata=Table[{(60/id[[1]])*Round[id[[6]]]+n,
 	ki[[n]]},{n,1,Length[ki]}];
 Show[ListPlot[tdata,PlotStyle->{Black,AbsoluteThickness[1.7]},
-	FrameLabel->{"External Time  (extrapolated)","Phase coherence"},
+	FrameLabel->{"External Time","Phase coherence"},
 	Joined->True, PlotRange->{{0,trange},{0.0,1.05}},
 	Frame->True, Axes->False,
 	FrameTicks->{Table[{n,If[IntegerQ[n/(24*(60/id[[1]]))],
@@ -4291,7 +4301,7 @@ tdata=Table[Table[{(60/id[[1]])*Round[id[[6]]]+n,
 	ki[[q]][[n]]},{n,1,Length[ki[[q]]]}],{q,1,Length[ki]}];
 Show[Table[ListPlot[tdata[[q]],PlotStyle->{Hue[((q-1)/Length[ki]),1,0.8],
 	AbsoluteThickness[1.7]},
-	FrameLabel->{"External Time  (extrapolated)","Phase coherence"},
+	FrameLabel->{"External Time","Phase coherence"},
 	Joined->True, PlotRange->{{0,trange},{0.0,1.05}},
 	Frame->True, Axes->False,
 	FrameTicks->{Table[{n,If[IntegerQ[n/(24*(60/id[[1]]))],
@@ -5230,20 +5240,114 @@ If[
 ]
 
 
+(* ::Subsubsection:: *)
+(*(7) Extras*)
+
+
+RLVImagePlot[rlall_,q_,id_,rev___]:=
+Module[{blktable,out,rv,fakeid},
+fakeid={0,0,{51,67}};
+If[rev===$Failed,rv=1,rv=rev];
+Which[
+rv==1,
+blktable=If[rv==6,TransparentTable[fakeid],BlackTable[fakeid]];
+Table[blktable[[sijMap[n,id][[2]]+3,sijMap[n,id][[1]]+5]]=rlall[[n]][[q]],
+	{n,1,id[[7]]}];
+out=ArrayPlot[blktable,PlotRange->{0,1},DataReversed->True,Frame->False,
+	ImageSize->70,PlotRangePadding->None,ClippingStyle->{Black,White},
+	ColorFunction->(GrayLevel[#]&),ImagePadding->{{0,0},{0,0}},
+	AspectRatio->id[[3]][[1]]/id[[3]][[2]]];,
+rv==2,
+blktable=WhiteTable[fakeid];
+Table[blktable[[sijMap[n,id][[2]]+3,sijMap[n,id][[1]]+5]]=rlall[[n]][[q]],
+	{n,1,id[[7]]}];
+out=ArrayPlot[blktable,PlotRange->{0,1},
+	DataReversed->True,Frame->False,
+	ImageSize->70,PlotRangePadding->None,ClippingStyle->{White,Black},
+	ColorFunction->(GrayLevel[1-#]&),ImagePadding->{{0,0},{0,0}},
+	AspectRatio->id[[3]][[1]]/id[[3]][[2]]];,
+rv==3||rv==6,
+blktable=BlackTable[fakeid];
+Table[blktable[[sijMap[n,id][[2]]+3,sijMap[n,id][[1]]+5]]=rlall[[n]][[q]],
+	{n,1,id[[7]]}];
+out=ArrayPlot[blktable,PlotRange->{0,1},DataReversed->True,Frame->False,
+	ImageSize->70,PlotRangePadding->None,
+	ClippingStyle->{Darker[Blue,0.6],Darker[Red,0.6]},
+	ColorFunction->"Rainbow", ImagePadding->{{0,0},{0,0}},
+	AspectRatio->id[[3]][[1]]/id[[3]][[2]]];];
+Return[out]]
+
+
+RLVImageArray[rlall_,id_,opts : OptionsPattern[]]:=
+Module[{ev,mmcycle,rmmcycle,p,rp,tr,tlabel,rtlabel,ztfill,
+	plotwhite,color,out,fakeid},
+fakeid={0,0,{51,67}};
+tr = Round[60/id[[1]]];
+ev = OptionValue[Koma];
+mmcycle = OptionValue[MaxCycle];
+rmmcycle = If[mmcycle===Automatic, 
+	Floor[Dimensions[rlall][[2]]/(24*tr)], mmcycle];
+tlabel = OptionValue[TimeLabel];
+color = OptionValue[Color];
+rtlabel = If[tlabel=="ZT", "Zeitgeber Time",
+		  If[tlabel=="ExT", "External Time",
+		  "Hours in vitro"]];
+
+plotwhite=
+	ArrayPlot[BlackTable[fakeid], DataReversed->True, Frame->False,
+	ImageSize->70, PlotRangePadding->None,
+	ClippingStyle->{Black,White},
+	ColorFunction->(GrayLevel[#]&),
+	ImagePadding->{{0,0},{0,0}},
+	AspectRatio->id[[3]][[1]]/id[[3]][[2]]];
+
+If[tlabel=="ZT",
+ztfill=Join[Table[plotwhite,{z,1,Round[(60/id[[1]])*id[[5]]],ev*tr}],
+  Flatten[Table[Table[RLVImagePlot[rlall,q,id,If[color==1,3,2]],
+  {q,(nq-1)*24*tr+1,nq*24*tr, ev*tr}],{nq,1,rmmcycle}]]];
+out=GraphicsGrid[
+Table[
+  Table[
+  If[q*Round[(60/id[[1]])]*ev<=Dimensions[rlall][[2]],
+    ztfill[[q]],plotwhite],
+  {q,(nq-1)*24/ev+1,nq*24/ev}],
+{nq,1,rmmcycle}],Spacings->0],
+If[tlabel=="ExT",
+ztfill=Join[Table[plotwhite,{z,1,Round[(60/id[[1]])*id[[6]]],ev*tr}],
+  Flatten[Table[Table[RLVImagePlot[rlall,q,id,If[color==1,3,2]],
+  {q,(nq-1)*24*tr+1,nq*24*tr, ev*tr}],{nq,1,rmmcycle}]]];
+out=GraphicsGrid[
+Table[
+  Table[
+  If[q*Round[(60/id[[1]])]*ev<=Dimensions[rlall][[2]],
+    ztfill[[q]],plotwhite],
+  {q,(nq-1)*24/ev+1,nq*24/ev}],
+{nq,1,rmmcycle}],Spacings->0],
+out=GraphicsGrid[
+Table[
+  Table[
+  If[q<=Dimensions[rlall][[2]],
+    RLVImagePlot[rlall,q,id,If[color==1,3,2]],plotwhite],
+  {q,(nq-1)*24*tr+1,nq*24*tr, ev*tr}],
+{nq,1,rmmcycle}],Spacings->0]]];
+
+Return[out]]
+
+
 (* ::Subsection:: *)
-(*Closing SCNImagingAnalysis.m*)
+(*Closing LucAnalysis.m*)
 
 
-SetAttributes[{CreateID, CreateFullID, IDID, ReadID, HPFilter,
+SetAttributes[{CreateID, CreateFullID, CreateFullIDFN, IDID, ReadID, HPFilter,
 ImportImage, PlotImage, PlotStdDevImage, PlotMeanImage, jinMap, ijnMap, 
-nijMap, TimeSeries, InteractiveTimeSeries, InteractiveRawTimeSeries,
+nijMap, TimeSeriesArray, InteractiveTimeSeries, InteractiveRawTimeSeries,
 PlotBackdrop, PlotTimeSeries, PlotRawTimeSeries, PlotAllRawTimeSeries,
 LinePlotTimeSeries, PlotAllTimeSeries, PlotAllPhase, RawTimeSeries,
 LinePlotRawTimeSeries, BlankTable, BlackTable, WhiteTable, RImagePlot,
 RImageArray, ZTImageArray, MeanLuminescence, SortByLuminescence,
 nsortMap, PlotSortedLuminescence, PlotCounts, RasterPlotCounts,
 GetDS, GetAllDS, GetS, GetAllS, RasterPlot, GetAllRN, GetAllRL,
-GetAllRF, EmbedS, PhaseS, PhaseFS, PhaseDS, Unwrap, GetSNR, RImageShot,
+GetAllRF, EmbedS, EmbedS2, PhaseS, PhaseFS, PhaseDS, Unwrap, GetSNR, RImageShot,
 AutoCorr, Peaks, Troughs, PeakPosition, TroughPosition, MeanIPI,
 StatIPI, MeanIntervals, AcroPhase, FFTPeriod, LaplacianSymmetric, 
 SpectralCoords, addLabel, SpectralClusters, SpectralClustersIndex,
@@ -5266,7 +5370,7 @@ PathOnClusterPlot, SeriesOnClusterPlot, PeriodPhaseOnPathPlot,
 MawarinoSeriesPlot, GetAllRF, PlotPhaseCoherence, PlotWaveAlongPath,
 PlotClusteredBars, RayleighPlot, CalibRayleighPlot, PerPhaPlot,
 PlotMeanTimeSeries, DoublePlot, Functions, ClockPlot, ClusterMap,
-CalibClusterMap, ClusterPlot, ClusterTopo,
+CalibClusterMap, ClusterPlot, ClusterTopo, RLVImagePlot, RLVImageArray,
 PlotClusterTimeSeries, PlotClusterPhase, PeriodPhasePlot, CreateFullID2},
 {Protected,ReadProtected}];
 
